@@ -1,11 +1,15 @@
 #include "cc_labelling.cuh"
 #include "image.hh"
 
+#include <algorithm>
 #include <cmath>
 #include <cuda_runtime.h>
 #include <iostream>
 
 using namespace utils;
+
+// 4 connectivity
+constexpr int connectivity = 4;
 
 [[gnu::noinline]] void _abortError(const char* msg, const char* fname, int line)
 {
@@ -21,9 +25,17 @@ float gradient(RGBPixel src, RGBPixel dst)
     return sqrt(pow(dst.r - src.r, 2) + pow(dst.g - src.g, 2) + pow(dst.b - src.b, 2));
 }
 
+void add_neighbour(std::vector<int>& nn_list, int site, int nn)
+{
+    int i = 0;
+    while (nn_list[connectivity * site + i] != -1)
+        ++i;
+    nn_list[connectivity * site + i] = nn;
+}
+
 std::vector<int> create_graph_4(std::shared_ptr<RGBImage> image)
 {
-    std::vector<int> nn_list(2 * image->width * image->height, -1);
+    std::vector<int> nn_list(connectivity * image->width * image->height, -1);
 
     for (int j = 0; j < image->height; ++j)
     {
@@ -31,20 +43,24 @@ std::vector<int> create_graph_4(std::shared_ptr<RGBImage> image)
         {
             int src_pos = i + j * image->width;
 
-            int count = 0;
-
             if (j != image->height - 1)
             {
-                auto dst_pos = i + (j + 1) * image->width;
+                int dst_pos = i + (j + 1) * image->width;
                 if (gradient(image->pixels[src_pos], image->pixels[dst_pos]) == 0.f)
-                    nn_list[src_pos + count++] = dst_pos;
+                {
+                    add_neighbour(nn_list, src_pos, dst_pos);
+                    add_neighbour(nn_list, dst_pos, src_pos);
+                }
             }
 
             if (i != image->width - 1)
             {
-                auto dst_pos = (i + 1) + j * image->width;
+                int dst_pos = (i + 1) + j * image->width;
                 if (gradient(image->pixels[src_pos], image->pixels[dst_pos]) == 0.f)
-                    nn_list[src_pos + count] = dst_pos;
+                {
+                    add_neighbour(nn_list, src_pos, dst_pos);
+                    add_neighbour(nn_list, dst_pos, src_pos);
+                }
             }
         }
     }
@@ -83,21 +99,18 @@ int main()
 
     auto image = RGBImage::load("../batiment.png");
 
-    // 4 connectivity
-    const int max_len = 2;
-
     auto nn_list_vect = create_graph_4(image);
-    int nb_site = nn_list_vect.size() / max_len;
+    int nb_site = nn_list_vect.size() / connectivity;
     auto nn_list = nn_list_vect.data();
 
     cudaError_t rc = cudaSuccess;
 
     int* m_nn_list;
-    rc = cudaMallocManaged(&m_nn_list, max_len * nb_site * sizeof(int));
+    rc = cudaMallocManaged(&m_nn_list, connectivity * nb_site * sizeof(int));
     if (rc)
         abortError("Fail M_NN_LIST allocation");
 
-    cudaMemcpy(m_nn_list, nn_list, max_len * nb_site * sizeof(int), cudaMemcpyHostToHost);
+    cudaMemcpy(m_nn_list, nn_list, connectivity * nb_site * sizeof(int), cudaMemcpyHostToHost);
 
     int* m_labels;
     rc = cudaMallocManaged(&m_labels, nb_site * sizeof(int));
@@ -105,20 +118,20 @@ int main()
         abortError("Fail M_LABELS allocation");
 
     int* m_residual_list;
-    rc = cudaMallocManaged(&m_residual_list, max_len * nb_site * sizeof(int));
+    rc = cudaMallocManaged(&m_residual_list, connectivity * nb_site * sizeof(int));
     if (rc)
         abortError("Fail M_RESIDUAL_LIST allocation");
-    cudaMemset(m_residual_list, -1, max_len * nb_site * sizeof(int));
+    cudaMemset(m_residual_list, -1, connectivity * nb_site * sizeof(int));
 
     for (int i = 0; i < nb_site; ++i)
-        initialization_step(m_nn_list, max_len, m_residual_list, m_labels, i);
+        initialization_step(m_nn_list, connectivity, m_residual_list, m_labels, i);
 
     for (int i = 0; i < nb_site; ++i)
         anylisis_step(m_labels, i);
 
     for (int i = 0; i < nb_site; ++i)
     {
-        reduction_step<<<1, 1>>>(m_residual_list, max_len, m_labels, i);
+        reduction_step<<<1, 1>>>(m_residual_list, connectivity, m_labels, i);
         cudaDeviceSynchronize();
     }
 
@@ -134,12 +147,31 @@ int main()
         }
     }
 
+    //    for (int j = 0; j < 50; ++j)
+    //    {
+    //        for (int i = 0; i < 50; ++i)
+    //        {
+    //            int site = i + j * image->width;
+    //            std::cout << m_labels[site] << " ";
+    //        }
+    //        std::cout << std::endl;
+    //    }
+
+    std::vector<int> unique;
+    for (int i = 0; i < nb_site; ++i)
+        unique.push_back(m_labels[i]);
+    auto ip = std::unique(unique.begin(), unique.end());
+    unique.resize(std::distance(unique.begin(), ip));
+
+    std::cout
+        << (double)unique.size() / (double)nb_site << std::endl;
+
     image->save("flatzone_labelling.png");
 
     //    for (int i = 0; i < nb_site; ++i)
     //    {
     //        std::cout << "SITE: " << i << ", LABEL: " << m_labels[i] << ", RESIDUAL: ";
-    //        for (uint j = i * max_len; j - i * max_len < max_len; ++j)
+    //        for (uint j = i * connectivity; j - i * connectivity < connectivity; ++j)
     //        {
     //            std::cout << m_residual_list[j] << " ";
     //        }
