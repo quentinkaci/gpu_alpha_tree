@@ -2,8 +2,6 @@
 
 void initialization_step(const int* nn_list, int max_len, int* residual_list, int* labels, int i)
 {
-    // FIXME int i = 0;
-
     int min = i;
     bool found_min = false;
 
@@ -27,10 +25,8 @@ void initialization_step(const int* nn_list, int max_len, int* residual_list, in
     labels[i] = found_min ? min : i;
 }
 
-void anylisis_step(int* labels, int i)
+void analysis_step(int* labels, int i)
 {
-    // FIXME int i = 0;
-
     int last_label;
     do
     {
@@ -39,14 +35,15 @@ void anylisis_step(int* labels, int i)
     } while (labels[i] != last_label);
 }
 
-#include <cstdio>
-
-__global__ void reduction_step(const int* residual_list, int max_len, int* labels, int i)
+__global__ void reduction_step(const int* residual_list, int max_len, int* labels, int height, int width)
 {
-    if (threadIdx.x != 0 && threadIdx.y != 0)
+    int x = blockDim.x * blockIdx.x + threadIdx.x;
+    int y = blockDim.y * blockIdx.y + threadIdx.y;
+
+    if (x >= width || y >= height)
         return;
 
-    // FIXME int i = 0;
+    int i = x + y * width;
 
     for (int j = i * max_len; (j - i * max_len) < max_len && residual_list[j] != -1; ++j)
     {

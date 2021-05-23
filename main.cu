@@ -127,16 +127,20 @@ int main()
         initialization_step(m_nn_list, connectivity, m_residual_list, m_labels, i);
 
     for (int i = 0; i < nb_site; ++i)
-        anylisis_step(m_labels, i);
+        analysis_step(m_labels, i);
+
+    int bsize = 32;
+    int w = std::ceil((float)image->width / bsize);
+    int h = std::ceil((float)image->height / bsize);
+
+    dim3 dimBlock(bsize, bsize);
+    dim3 dimGrid(w, h);
+
+    reduction_step<<<dimGrid, dimBlock>>>(m_residual_list, connectivity, m_labels, image->height, image->width);
+    cudaDeviceSynchronize();
 
     for (int i = 0; i < nb_site; ++i)
-    {
-        reduction_step<<<1, 1>>>(m_residual_list, connectivity, m_labels, i);
-        cudaDeviceSynchronize();
-    }
-
-    for (int i = 0; i < nb_site; ++i)
-        anylisis_step(m_labels, i);
+        analysis_step(m_labels, i);
 
     for (int j = 0; j < image->height; ++j)
     {
