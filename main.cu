@@ -77,22 +77,31 @@ int main()
     dim3 dimBlock(bsize, bsize);
     dim3 dimGrid(w, h);
 
-    // Kernel launch
+    // Kernel
 
-    create_graph_4<<<dimGrid, dimBlock>>>(image->pixels, m_nn_list, image->height, image->width);
-    cudaDeviceSynchronize();
+    // Graph creation
+    {
+        create_graph_4<<<dimGrid, dimBlock>>>(image->pixels, m_nn_list, image->height, image->width);
+        cudaDeviceSynchronize();
+    }
 
-    initialization_step<<<dimGrid, dimBlock>>>(m_nn_list, connectivity, m_residual_list, m_labels, image->height, image->width);
-    cudaDeviceSynchronize();
+    // Flat zone labelization
+    {
+        initialization_step<<<dimGrid, dimBlock>>>(m_nn_list, connectivity, m_residual_list, m_labels, image->height, image->width);
+        cudaDeviceSynchronize();
 
-    analysis_step<<<dimGrid, dimBlock>>>(m_labels, image->height, image->width);
-    cudaDeviceSynchronize();
+        analysis_step<<<dimGrid, dimBlock>>>(m_labels, image->height, image->width);
+        cudaDeviceSynchronize();
 
-    reduction_step<<<dimGrid, dimBlock>>>(m_residual_list, connectivity, m_labels, image->height, image->width);
-    cudaDeviceSynchronize();
+        reduction_step<<<dimGrid, dimBlock>>>(m_residual_list, connectivity, m_labels, image->height, image->width);
+        cudaDeviceSynchronize();
 
-    analysis_step<<<dimGrid, dimBlock>>>(m_labels, image->height, image->width);
-    cudaDeviceSynchronize();
+        analysis_step<<<dimGrid, dimBlock>>>(m_labels, image->height, image->width);
+        cudaDeviceSynchronize();
+    }
+
+    if (cudaPeekAtLastError())
+        abortError("Computation Error");
 
     // Image reconstruction
 
@@ -105,7 +114,7 @@ int main()
         }
     }
 
-    // Checks
+    // Validity checks
 
     image->save("flatzone_labelling.png");
 
