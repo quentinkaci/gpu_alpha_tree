@@ -68,40 +68,38 @@ std::vector<int> create_graph_4(std::shared_ptr<RGBImage> image)
     return nn_list;
 }
 
+void debug_display(int nb_site, int* labels, int* residual_list, bool verbose = false)
+{
+    if (verbose)
+    {
+        for (int i = 0; i < nb_site; ++i)
+        {
+            std::cout << "SITE: " << i << ", LABEL: " << labels[i] << ", RESIDUAL: ";
+            for (uint j = i * connectivity; j - i * connectivity < connectivity; ++j)
+            {
+                std::cout << residual_list[j] << " ";
+            }
+            std::cout << std::endl;
+        }
+    }
+
+    std::vector<int> unique;
+    for (int i = 0; i < nb_site; ++i)
+        unique.push_back(labels[i]);
+    auto ip = std::unique(unique.begin(), unique.end());
+    unique.resize(std::distance(unique.begin(), ip));
+
+    std::cout << "Number of flatzone / Number of pixels: " << (double)unique.size() << " / " << (double)nb_site << std::endl;
+}
+
 int main()
 {
-    // clang-format off
-    //    int nn_list[] = {
-    //        3, 10, -1, -1,
-    //        4, 5, 15, -1,
-    //        17, 18, -1, -1,
-    //        0, 8, 9, 21,
-    //        1, 11, -1, -1,
-    //        1, 13, 20, -1,
-    //        8, 9, -1, -1,
-    //        20, -1, -1, -1,
-    //        3, 6, -1, -1,
-    //        3, 6, 10, -1,
-    //        0, 9, -1, -1,
-    //        4, 20, -1, -1,
-    //        16, 19, 21, -1,
-    //        5, 15, -1, -1,
-    //        19, 21, -1, -1,
-    //        1, 13, -1, -1,
-    //        12, 21, -1, -1,
-    //        2, 18, -1, -1,
-    //        2, 17, -1, -1,
-    //        12, 14, -1, -1,
-    //        5, 7, 11, -1,
-    //        3, 12, 14, 16
-    //    };
-    // clang-format on
-
     auto image = RGBImage::load("../batiment.png");
 
-    auto nn_list_vect = create_graph_4(image);
-    int nb_site = nn_list_vect.size() / connectivity;
-    auto nn_list = nn_list_vect.data();
+    int nb_site = image->height * image->width;
+
+    auto nn_list_vector = create_graph_4(image);
+    auto nn_list = nn_list_vector.data();
 
     cudaError_t rc = cudaSuccess;
 
@@ -109,7 +107,6 @@ int main()
     rc = cudaMallocManaged(&m_nn_list, connectivity * nb_site * sizeof(int));
     if (rc)
         abortError("Fail M_NN_LIST allocation");
-
     cudaMemcpy(m_nn_list, nn_list, connectivity * nb_site * sizeof(int), cudaMemcpyHostToHost);
 
     int* m_labels;
@@ -123,12 +120,6 @@ int main()
         abortError("Fail M_RESIDUAL_LIST allocation");
     cudaMemset(m_residual_list, -1, connectivity * nb_site * sizeof(int));
 
-    for (int i = 0; i < nb_site; ++i)
-        initialization_step(m_nn_list, connectivity, m_residual_list, m_labels, i);
-
-    for (int i = 0; i < nb_site; ++i)
-        analysis_step(m_labels, i);
-
     int bsize = 32;
     int w = std::ceil((float)image->width / bsize);
     int h = std::ceil((float)image->height / bsize);
@@ -136,11 +127,17 @@ int main()
     dim3 dimBlock(bsize, bsize);
     dim3 dimGrid(w, h);
 
+    initialization_step<<<dimGrid, dimBlock>>>(m_nn_list, connectivity, m_residual_list, m_labels, image->height, image->width);
+    cudaDeviceSynchronize();
+
+    analysis_step<<<dimGrid, dimBlock>>>(m_labels, image->height, image->width);
+    cudaDeviceSynchronize();
+
     reduction_step<<<dimGrid, dimBlock>>>(m_residual_list, connectivity, m_labels, image->height, image->width);
     cudaDeviceSynchronize();
 
-    for (int i = 0; i < nb_site; ++i)
-        analysis_step(m_labels, i);
+    analysis_step<<<dimGrid, dimBlock>>>(m_labels, image->height, image->width);
+    cudaDeviceSynchronize();
 
     for (int j = 0; j < image->height; ++j)
     {
@@ -151,36 +148,9 @@ int main()
         }
     }
 
-    //    for (int j = 0; j < 50; ++j)
-    //    {
-    //        for (int i = 0; i < 50; ++i)
-    //        {
-    //            int site = i + j * image->width;
-    //            std::cout << m_labels[site] << " ";
-    //        }
-    //        std::cout << std::endl;
-    //    }
-
-    std::vector<int> unique;
-    for (int i = 0; i < nb_site; ++i)
-        unique.push_back(m_labels[i]);
-    auto ip = std::unique(unique.begin(), unique.end());
-    unique.resize(std::distance(unique.begin(), ip));
-
-    std::cout
-        << (double)unique.size() / (double)nb_site << std::endl;
-
     image->save("flatzone_labelling.png");
 
-    //    for (int i = 0; i < nb_site; ++i)
-    //    {
-    //        std::cout << "SITE: " << i << ", LABEL: " << m_labels[i] << ", RESIDUAL: ";
-    //        for (uint j = i * connectivity; j - i * connectivity < connectivity; ++j)
-    //        {
-    //            std::cout << m_residual_list[j] << " ";
-    //        }
-    //        std::cout << std::endl;
-    //    }
+    debug_display(nb_site, m_labels, m_residual_list);
 
     return 0;
 }

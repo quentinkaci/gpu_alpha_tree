@@ -1,32 +1,44 @@
 #include "cc_labelling.cuh"
 
-void initialization_step(const int* nn_list, int max_len, int* residual_list, int* labels, int i)
+__global__ void initialization_step(const int* nn_list, int max_len, int* residual_list, int* labels, int height, int width)
 {
-    int min = i;
-    bool found_min = false;
+    int x = blockDim.x * blockIdx.x + threadIdx.x;
+    int y = blockDim.y * blockIdx.y + threadIdx.y;
+
+    if (x >= width || y >= height)
+        return;
+
+    int i = x + y * width;
+
+    int label = i;
 
     for (int j = i * max_len; (j - i * max_len) < max_len && nn_list[j] != -1; ++j)
     {
-        if (nn_list[j] < min)
-        {
-            min = nn_list[j];
-            found_min = true;
-        }
+        if (nn_list[j] < label)
+            label = nn_list[j];
     }
 
     int pos = i * max_len;
     for (int j = i * max_len; (j - i * max_len) < max_len && nn_list[j] != -1; ++j)
     {
-        if (nn_list[j] < i && nn_list[j] != min)
+        if (nn_list[j] < i && nn_list[j] != label)
             residual_list[pos++] = nn_list[j];
     }
 
     // Assign label
-    labels[i] = found_min ? min : i;
+    labels[i] = label;
 }
 
-void analysis_step(int* labels, int i)
+__global__ void analysis_step(int* labels, int height, int width)
 {
+    int x = blockDim.x * blockIdx.x + threadIdx.x;
+    int y = blockDim.y * blockIdx.y + threadIdx.y;
+
+    if (x >= width || y >= height)
+        return;
+
+    int i = x + y * width;
+
     int last_label;
     do
     {
