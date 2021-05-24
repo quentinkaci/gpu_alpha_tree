@@ -152,5 +152,9 @@ int main()
 
     debug_display(nb_site, m_labels, m_residual_list);
 
+    cudaFree(m_nn_list);
+    cudaFree(m_labels);
+    cudaFree(m_residual_list);
+
     return 0;
 }
