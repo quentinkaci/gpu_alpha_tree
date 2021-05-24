@@ -39,7 +39,7 @@ int main()
 {
     // Image loading
 
-    auto image = RGBImage::load("../batiment.png");
+    auto image = RGBImage::load("../hong_kong.png");
 
     int nb_site = image->height * image->width;
 
@@ -77,7 +77,7 @@ int main()
     dim3 dimBlock(bsize, bsize);
     dim3 dimGrid(w, h);
 
-    // Kernel
+    // Kernel launch
 
     // Graph creation
     {
@@ -87,13 +87,13 @@ int main()
 
     // Flat zone labelization
     {
-        initialization_step<<<dimGrid, dimBlock>>>(m_nn_list, connectivity, m_residual_list, m_labels, image->height, image->width);
+        initialization_step<<<dimGrid, dimBlock>>>(m_nn_list, m_residual_list, m_labels, image->height, image->width);
         cudaDeviceSynchronize();
 
         analysis_step<<<dimGrid, dimBlock>>>(m_labels, image->height, image->width);
         cudaDeviceSynchronize();
 
-        reduction_step<<<dimGrid, dimBlock>>>(m_residual_list, connectivity, m_labels, image->height, image->width);
+        reduction_step<<<dimGrid, dimBlock>>>(m_residual_list, m_labels, image->height, image->width);
         cudaDeviceSynchronize();
 
         analysis_step<<<dimGrid, dimBlock>>>(m_labels, image->height, image->width);

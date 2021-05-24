@@ -1,6 +1,8 @@
 #include "cc_labelling.cuh"
 
-__global__ void initialization_step(const int* nn_list, int max_len, int* residual_list, int* labels, int height, int width)
+constexpr int connectivity = 4;
+
+__global__ void initialization_step(const int* nn_list, int* residual_list, int* labels, int height, int width)
 {
     int x = blockDim.x * blockIdx.x + threadIdx.x;
     int y = blockDim.y * blockIdx.y + threadIdx.y;
@@ -12,23 +14,25 @@ __global__ void initialization_step(const int* nn_list, int max_len, int* residu
 
     int label = i;
 
-    for (int j = i * max_len; (j - i * max_len) < max_len; ++j)
+    for (int j = i * connectivity; (j - i * connectivity) < connectivity; ++j)
     {
-        if (nn_list[j] == -1)
+        int nn = nn_list[j];
+        if (nn == -1)
             continue;
 
-        if (nn_list[j] < label)
-            label = nn_list[j];
+        if (nn < label)
+            label = nn;
     }
 
-    int pos = i * max_len;
-    for (int j = i * max_len; (j - i * max_len) < max_len; ++j)
+    int pos = i * connectivity;
+    for (int j = i * connectivity; (j - i * connectivity) < connectivity; ++j)
     {
-        if (nn_list[j] == -1)
+        int nn = nn_list[j];
+        if (nn == -1)
             continue;
 
-        if (nn_list[j] < i && nn_list[j] != label)
-            residual_list[pos++] = nn_list[j];
+        if (nn < i && nn != label)
+            residual_list[pos++] = nn;
     }
 
     // Assign label
@@ -53,7 +57,7 @@ __global__ void analysis_step(int* labels, int height, int width)
     } while (labels[i] != last_label);
 }
 
-__global__ void reduction_step(const int* residual_list, int max_len, int* labels, int height, int width)
+__global__ void reduction_step(const int* residual_list, int* labels, int height, int width)
 {
     int x = blockDim.x * blockIdx.x + threadIdx.x;
     int y = blockDim.y * blockIdx.y + threadIdx.y;
@@ -63,7 +67,7 @@ __global__ void reduction_step(const int* residual_list, int max_len, int* label
 
     int i = x + y * width;
 
-    for (int j = i * max_len; (j - i * max_len) < max_len && residual_list[j] != -1; ++j)
+    for (int j = i * connectivity; (j - i * connectivity) < connectivity && residual_list[j] != -1; ++j)
     {
         int label_1 = labels[i];
         while (label_1 != labels[label_1])
