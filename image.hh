@@ -3,6 +3,8 @@
 #include <memory>
 #include <png++/png.hpp>
 
+#include "cuda_error.cuh"
+
 namespace utils
 {
     struct RGBPixel
@@ -17,12 +19,13 @@ namespace utils
         RGBImage(uint height, uint width)
             : height(height), width(width)
         {
-            pixels = new RGBPixel[height * width];
+            if (cudaMallocManaged(&pixels, height * width * sizeof(RGBPixel)))
+                abortError("Fail PIXELS allocation");
         }
 
         ~RGBImage()
         {
-            delete[] pixels;
+            cudaFree(pixels);
         }
 
         static std::shared_ptr<RGBImage> load(const std::string& filename)

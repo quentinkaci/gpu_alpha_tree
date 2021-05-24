@@ -12,15 +12,21 @@ __global__ void initialization_step(const int* nn_list, int max_len, int* residu
 
     int label = i;
 
-    for (int j = i * max_len; (j - i * max_len) < max_len && nn_list[j] != -1; ++j)
+    for (int j = i * max_len; (j - i * max_len) < max_len; ++j)
     {
+        if (nn_list[j] == -1)
+            continue;
+
         if (nn_list[j] < label)
             label = nn_list[j];
     }
 
     int pos = i * max_len;
-    for (int j = i * max_len; (j - i * max_len) < max_len && nn_list[j] != -1; ++j)
+    for (int j = i * max_len; (j - i * max_len) < max_len; ++j)
     {
+        if (nn_list[j] == -1)
+            continue;
+
         if (nn_list[j] < i && nn_list[j] != label)
             residual_list[pos++] = nn_list[j];
     }

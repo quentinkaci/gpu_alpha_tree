@@ -1,72 +1,15 @@
 #include "cc_labelling.cuh"
+#include "cuda_error.cuh"
+#include "graph_creation.cuh"
+
 #include "image.hh"
 
 #include <algorithm>
 #include <cmath>
-#include <cuda_runtime.h>
-#include <iostream>
 
 using namespace utils;
 
-// 4 connectivity
 constexpr int connectivity = 4;
-
-[[gnu::noinline]] void _abortError(const char* msg, const char* fname, int line)
-{
-    cudaError_t err = cudaGetLastError();
-    std::cerr << "Error: " << err << std::endl;
-    std::exit(1);
-}
-
-#define abortError(msg) _abortError(msg, __FUNCTION__, __LINE__)
-
-float gradient(RGBPixel src, RGBPixel dst)
-{
-    return sqrt(pow(dst.r - src.r, 2) + pow(dst.g - src.g, 2) + pow(dst.b - src.b, 2));
-}
-
-void add_neighbour(std::vector<int>& nn_list, int site, int nn)
-{
-    int i = 0;
-    while (nn_list[connectivity * site + i] != -1)
-        ++i;
-    nn_list[connectivity * site + i] = nn;
-}
-
-std::vector<int> create_graph_4(std::shared_ptr<RGBImage> image)
-{
-    std::vector<int> nn_list(connectivity * image->width * image->height, -1);
-
-    for (int j = 0; j < image->height; ++j)
-    {
-        for (int i = 0; i < image->width; ++i)
-        {
-            int src_pos = i + j * image->width;
-
-            if (j != image->height - 1)
-            {
-                int dst_pos = i + (j + 1) * image->width;
-                if (gradient(image->pixels[src_pos], image->pixels[dst_pos]) == 0.f)
-                {
-                    add_neighbour(nn_list, src_pos, dst_pos);
-                    add_neighbour(nn_list, dst_pos, src_pos);
-                }
-            }
-
-            if (i != image->width - 1)
-            {
-                int dst_pos = (i + 1) + j * image->width;
-                if (gradient(image->pixels[src_pos], image->pixels[dst_pos]) == 0.f)
-                {
-                    add_neighbour(nn_list, src_pos, dst_pos);
-                    add_neighbour(nn_list, dst_pos, src_pos);
-                }
-            }
-        }
-    }
-
-    return nn_list;
-}
 
 void debug_display(int nb_site, int* labels, int* residual_list, bool verbose = false)
 {
@@ -94,12 +37,13 @@ void debug_display(int nb_site, int* labels, int* residual_list, bool verbose = 
 
 int main()
 {
+    // Image loading
+
     auto image = RGBImage::load("../batiment.png");
 
     int nb_site = image->height * image->width;
 
-    auto nn_list_vector = create_graph_4(image);
-    auto nn_list = nn_list_vector.data();
+    // Memory allocation
 
     cudaError_t rc = cudaSuccess;
 
@@ -107,7 +51,9 @@ int main()
     rc = cudaMallocManaged(&m_nn_list, connectivity * nb_site * sizeof(int));
     if (rc)
         abortError("Fail M_NN_LIST allocation");
-    cudaMemcpy(m_nn_list, nn_list, connectivity * nb_site * sizeof(int), cudaMemcpyHostToHost);
+    rc = cudaMemset(m_nn_list, -1, connectivity * nb_site * sizeof(int));
+    if (rc)
+        abortError("Fail M_NN_LIST memset");
 
     int* m_labels;
     rc = cudaMallocManaged(&m_labels, nb_site * sizeof(int));
@@ -118,7 +64,11 @@ int main()
     rc = cudaMallocManaged(&m_residual_list, connectivity * nb_site * sizeof(int));
     if (rc)
         abortError("Fail M_RESIDUAL_LIST allocation");
-    cudaMemset(m_residual_list, -1, connectivity * nb_site * sizeof(int));
+    rc = cudaMemset(m_residual_list, -1, connectivity * nb_site * sizeof(int));
+    if (rc)
+        abortError("Fail M_RESIDUAL_LIST memset");
+
+    // Kernel setup
 
     int bsize = 32;
     int w = std::ceil((float)image->width / bsize);
@@ -126,6 +76,11 @@ int main()
 
     dim3 dimBlock(bsize, bsize);
     dim3 dimGrid(w, h);
+
+    // Kernel launch
+
+    create_graph_4<<<dimGrid, dimBlock>>>(image->pixels, m_nn_list, image->height, image->width);
+    cudaDeviceSynchronize();
 
     initialization_step<<<dimGrid, dimBlock>>>(m_nn_list, connectivity, m_residual_list, m_labels, image->height, image->width);
     cudaDeviceSynchronize();
@@ -139,6 +94,8 @@ int main()
     analysis_step<<<dimGrid, dimBlock>>>(m_labels, image->height, image->width);
     cudaDeviceSynchronize();
 
+    // Image reconstruction
+
     for (int j = 0; j < image->height; ++j)
     {
         for (int i = 0; i < image->width; ++i)
@@ -148,9 +105,13 @@ int main()
         }
     }
 
+    // Checks
+
     image->save("flatzone_labelling.png");
 
     debug_display(nb_site, m_labels, m_residual_list);
+
+    // Free memory
 
     cudaFree(m_nn_list);
     cudaFree(m_labels);
