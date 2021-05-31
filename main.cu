@@ -167,12 +167,12 @@ int main()
         {20, 45, 79},
         {20, 45, 79},
     };
-    unsigned int height = 12;
-    unsigned int width = 2;
+    int height = 10;
+    int width = 2;
 
-    unsigned int new_height = (height + (BlockHeight - 1) * (unsigned int)std::floor((float)height / BlockHeight) + height % BlockHeight);
+    int new_height = (height + (BlockHeight - 1) * (int)std::floor((float)height / BlockHeight) + std::max(((height % BlockHeight) - 1), 0));
 
-    unsigned int nb_nodes = width * new_height;
+    int nb_nodes = width * new_height;
 
     cudaError_t rc = cudaSuccess;
 
@@ -194,8 +194,8 @@ int main()
     if (rc)
         abortError("Fail M_LEVELS allocation");
 
-    unsigned int w = std::ceil((float)width / BlockHeight);
-    unsigned int h = std::ceil((float)new_height / BlockHeight);
+    int w = std::ceil((float)width / BlockHeight);
+    int h = std::ceil((float)new_height / BlockHeight);
 
     dim3 dimBlock(BlockHeight, BlockHeight);
     dim3 dimGrid(w, h);

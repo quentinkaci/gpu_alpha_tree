@@ -36,11 +36,11 @@ inline __device__ int find(const int* parent, int val)
     return p;
 }
 
-template <unsigned int BlockHeight>
-inline __global__ void build_alpha_tree_col(RGBPixel* image, int* parent, double* levels, unsigned int height, unsigned int width)
+template <int BlockHeight>
+inline __global__ void build_alpha_tree_col(RGBPixel* image, int* parent, double* levels, int height, int width)
 {
-    unsigned int x = blockDim.x * blockIdx.x + threadIdx.x;
-    unsigned int y = BlockHeight * blockIdx.y;
+    int x = blockDim.x * blockIdx.x + threadIdx.x;
+    int y = BlockHeight * blockIdx.y;
 
     if (x >= width || y >= height)
         return;
