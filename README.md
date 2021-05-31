@@ -11,7 +11,7 @@ make
 
 ## To-Do
 
-- [ ] CPU implem
+- [ ] Add some unit tests
 
 ## Authors
 

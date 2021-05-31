@@ -35,7 +35,7 @@ void debug_display(int nb_site, int* labels, int* residual_list, bool verbose = 
     std::cout << "Number of flatzone / Number of pixels: " << (double)unique.size() << " / " << (double)nb_site << std::endl;
 }
 
-void alpha_tree_gpu(const std::shared_ptr<RGBImage>& image)
+void alpha_tree_gpu(const std::shared_ptr<RGBImage>& image, bool debug)
 {
     int nb_site = image->height * image->width;
 
@@ -110,7 +110,8 @@ void alpha_tree_gpu(const std::shared_ptr<RGBImage>& image)
     }
 
     // Validity checks
-    debug_display(nb_site, m_labels, m_residual_list);
+    if (debug)
+        debug_display(nb_site, m_labels, m_residual_list);
 
     // Free memory
     cudaFree(m_nn_list);
