@@ -1,8 +1,8 @@
 #include "cc_labelling.cuh"
-#include "cuda_error.cuh"
 #include "graph_creation.cuh"
 
-#include "image.hh"
+#include "utils/cuda_error.cuh"
+#include "utils/image.cuh"
 
 #include <algorithm>
 #include <cmath>
@@ -35,12 +35,8 @@ void debug_display(int nb_site, int* labels, int* residual_list, bool verbose = 
     std::cout << "Number of flatzone / Number of pixels: " << (double)unique.size() << " / " << (double)nb_site << std::endl;
 }
 
-int main()
+void alpha_tree_gpu(const std::shared_ptr<RGBImage>& image)
 {
-    // Image loading
-
-    auto image = RGBImage::load("../hong_kong.png");
-
     int nb_site = image->height * image->width;
 
     // Memory allocation
@@ -104,7 +100,6 @@ int main()
         abortError("Computation Error");
 
     // Image reconstruction
-
     for (int j = 0; j < image->height; ++j)
     {
         for (int i = 0; i < image->width; ++i)
@@ -115,16 +110,10 @@ int main()
     }
 
     // Validity checks
-
-    image->save("flatzone_labelling.png");
-
     debug_display(nb_site, m_labels, m_residual_list);
 
     // Free memory
-
     cudaFree(m_nn_list);
     cudaFree(m_labels);
     cudaFree(m_residual_list);
-
-    return 0;
 }
