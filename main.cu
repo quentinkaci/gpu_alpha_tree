@@ -11,6 +11,7 @@
 using namespace utils;
 
 constexpr int connectivity = 4;
+constexpr int BlockHeight = 6;
 
 void debug_display(int nb_site, int* labels, int* residual_list, bool verbose = false)
 {
@@ -71,11 +72,11 @@ int main()
     //
     //    // Kernel setup
     //
-    //    int bsize = 32;
-    //    int w = std::ceil((float)image->width / bsize);
-    //    int h = std::ceil((float)image->height / bsize);
+    //    int BlockHeight = 32;
+    //    int w = std::ceil((float)image->width / BlockHeight);
+    //    int h = std::ceil((float)image->height / BlockHeight);
     //
-    //    dim3 dimBlock(bsize, bsize);
+    //    dim3 dimBlock(BlockHeight, BlockHeight);
     //    dim3 dimGrid(w, h);
     //
     //    // Kernel launch
@@ -127,10 +128,51 @@ int main()
     //    cudaFree(m_labels);
     //    cudaFree(m_residual_list);
 
-    RGBPixel image[6] = {
-        {100, 100, 100}, {100, 100, 150}, {20, 45, 79}, {100, 100, 100}, {100, 100, 150}, {20, 45, 79}};
-    int height = 6;
-    int width = 1;
+    RGBPixel image[24] = {
+        {100, 100, 100},
+        {100, 100, 100},
+
+        {100, 100, 150},
+        {100, 100, 150},
+
+        {20, 45, 79},
+        {20, 45, 79},
+
+        {100, 100, 100},
+        {100, 100, 100},
+
+        {100, 100, 150},
+        {100, 100, 150},
+
+        {20, 45, 79},
+        {20, 45, 79},
+
+        //
+
+        {100, 100, 100},
+        {100, 100, 100},
+
+        {100, 100, 150},
+        {100, 100, 150},
+
+        {20, 45, 79},
+        {20, 45, 79},
+
+        {100, 100, 100},
+        {100, 100, 100},
+
+        {100, 100, 150},
+        {100, 100, 150},
+
+        {20, 45, 79},
+        {20, 45, 79},
+    };
+    unsigned int height = 12;
+    unsigned int width = 2;
+
+    unsigned int new_height = (height + (BlockHeight - 1) * (unsigned int)std::floor((float)height / BlockHeight) + height % BlockHeight);
+
+    unsigned int nb_nodes = width * new_height;
 
     cudaError_t rc = cudaSuccess;
 
@@ -143,43 +185,42 @@ int main()
         abortError("Fail M_IMAGE memcpy");
 
     int* m_parent;
-    rc = cudaMallocManaged(&m_parent, (2 * height * width - 1) * sizeof(int));
+    rc = cudaMallocManaged(&m_parent, nb_nodes * sizeof(int));
     if (rc)
         abortError("Fail M_IMAGE allocation");
 
     double* m_levels;
-    rc = cudaMallocManaged(&m_levels, (2 * height * width - 1) * sizeof(double));
+    rc = cudaMallocManaged(&m_levels, nb_nodes * sizeof(double));
     if (rc)
         abortError("Fail M_LEVELS allocation");
 
-    int bsize = 32;
-    int w = std::ceil((float)(width + bsize) / bsize);
-    int h = std::ceil((float)height / bsize);
+    unsigned int w = std::ceil((float)width / BlockHeight);
+    unsigned int h = std::ceil((float)new_height / BlockHeight);
 
-    dim3 dimBlock(bsize, bsize);
+    dim3 dimBlock(BlockHeight, BlockHeight);
     dim3 dimGrid(w, h);
 
-    init_parent<<<dimGrid, dimBlock>>>(m_parent, height, width);
+    init_parent<<<dimGrid, dimBlock>>>(m_parent, new_height, width);
 
     cudaDeviceSynchronize();
 
-    for (int i = 0; i < 2 * height * width - 1; ++i)
-        std::cout << m_parent[i] << ", ";
-    std::cout << std::endl;
+    w = std::ceil((float)width / BlockHeight);
+    h = std::ceil((float)height / BlockHeight);
 
-    //    w = std::ceil((float)width / bsize);
-    //    h = std::ceil((float)height / bsize);
-    //
-    //    dimBlock = dim3(bsize, bsize);
-    //    dimGrid = dim3(w, h);
-    //
-    //    build_alpha_tree_col<32><<<dimGrid, dimBlock>>>(m_image, m_parent, m_levels, height, width);
-    //
-    //    cudaDeviceSynchronize();
-    //
-    //    for (int i = 0; i < 2 * height * width - 1; ++i)
-    //        std::cout << m_parent[i] << ", ";
-    //    std::cout << std::endl;
+    dimBlock = dim3(BlockHeight, 1);
+    dimGrid = dim3(w, h);
+
+    build_alpha_tree_col<BlockHeight><<<dimGrid, dimBlock>>>(m_image, m_parent, m_levels, height, width);
+
+    cudaDeviceSynchronize();
+
+    for (int i = 0; i < nb_nodes; ++i)
+    {
+        std::cout << m_parent[i] << ", ";
+        if (i == height * width - 1)
+            std::cout << ::std::endl;
+    }
+    std::cout << std::endl;
 
     cudaFree(m_image);
     cudaFree(m_parent);

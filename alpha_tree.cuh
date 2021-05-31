@@ -37,41 +37,63 @@ inline __device__ int find(const int* parent, int val)
 }
 
 template <unsigned int BlockHeight>
-inline __global__ void build_alpha_tree_col(RGBPixel* image, int* parent, double* levels, int height, int width)
+inline __global__ void build_alpha_tree_col(RGBPixel* image, int* parent, double* levels, unsigned int height, unsigned int width)
 {
     unsigned int x = blockDim.x * blockIdx.x + threadIdx.x;
-    unsigned int y = blockDim.y * blockIdx.y;
+    unsigned int y = BlockHeight * blockIdx.y;
 
     if (x >= width || y >= height)
         return;
 
+    //    if (x != 1 || y != 6)
+    //        return;
+
     double weights[BlockHeight - 1];
     int sources[BlockHeight - 1];
 
-    int node_offset = (2 * BlockHeight - 1) * (x + blockIdx.y);
+    int nb_pix_col = min(height - y, BlockHeight);
 
-    for (int i = 0; i < BlockHeight - 1; ++i)
+    int leaf_offset;
+    int parent_offset = width * height;
+    if ((blockIdx.y + 1) * BlockHeight >= height) // Last line
+    {
+        leaf_offset = BlockHeight * width * blockIdx.y + nb_pix_col * x;
+        parent_offset += (BlockHeight - 1) * width * blockIdx.y + (nb_pix_col - 1) * x;
+    }
+    else
+    {
+        leaf_offset = BlockHeight * (x + blockIdx.y * width);
+        parent_offset += (BlockHeight - 1) * (x + blockIdx.y * width);
+    }
+
+    //    printf("Leaf offset: %d\n", leaf_offset);
+    //    printf("Parent offset: %d\n", parent_offset);
+
+    for (int i = 0; i < (nb_pix_col - 1); ++i)
     {
         double dist = l2_dist(image[x + (y + i) * width], image[x + (y + i + 1) * width]);
         weights[i] = dist;
 
-        sources[i] = i + node_offset;
-    }
-    thrust::sort_by_key(thrust::device, weights, weights + (BlockHeight - 1), sources);
+        //        printf("(src: %d, dst: %d, w: %f)\n", x + (y + i) * width, x + (y + i + 1) * width, dist);
 
-    int nb_pix_col = min(y - height, BlockHeight - 1);
-    for (int i = 0; i < nb_pix_col; ++i)
+        sources[i] = leaf_offset + i;
+    }
+    thrust::sort_by_key(thrust::device, weights, weights + (nb_pix_col - 1), sources);
+
+    for (int i = 0; i < (nb_pix_col - 1); ++i)
     {
         int p = sources[i];
         int q = p + 1;
         double w = weights[i];
+
+        //        printf("(%d, %d, %f), %d\n", p, q, w, i);
 
         int rp = find(parent, p);
         int rq = find(parent, q);
 
         if (rp != rq)
         {
-            int new_node = node_offset + BlockHeight + i;
+            int new_node = parent_offset + i;
 
             parent[rp] = new_node;
             parent[rq] = new_node;
