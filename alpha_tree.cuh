@@ -115,6 +115,13 @@ inline __device__ int find_last_leq(const int* parent, const double* levels, int
 
 inline __device__ int merge(int* parent, const double* levels, int p, int q)
 {
+    // FIXME Dirty trick
+    if (levels[p] == 0 && levels[q] == 0)
+    {
+        parent[q] = parent[p];
+        return parent[p];
+    }
+
     if (levels[q] > levels[p])
     {
         parent[p] = q;
@@ -156,15 +163,24 @@ inline __global__ void merge_alpha_tree_col(RGBPixel* image, int* parent, double
         int p2 = i + BlockHeight;
         double dist = l2_dist(image[x + (y + i) * width], image[(x + 1) + (y + i) * width]);
 
+        //        if (i == 1)
+        //            printf("src: %d, dst: %d, w: %f\n", p1, p2, dist);
+
         //        printf("(src: %d, dst: %d, w: %f)\n", p1, p2, dist);
 
         int n1 = find_last_leq(parent, levels, p1, dist);
         int n2 = find_last_leq(parent, levels, p2, dist);
 
+        //        if (i == 1)
+        //            printf("n1: %d, n2: %d\n", n1, n2);
+
         // FIXME Wrong if the edge has a higher weight than the root of sub-trees.
         //       In this case we have to create a new node: Where to store it ?
         int a = parent[n1];
         int b = parent[n2];
+
+        //        if (i == 1)
+        //            printf("a: %d, b: %d\n", a, b);
 
         int n = merge(parent, levels, n1, n2);
 

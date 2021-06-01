@@ -8,6 +8,8 @@
 #include <algorithm>
 #include <cmath>
 
+#include <fstream>
+
 using namespace utils;
 
 constexpr int connectivity = 4;
@@ -34,7 +36,49 @@ void debug_display(int nb_site, int* labels, int* residual_list, bool verbose = 
     auto ip = std::unique(unique.begin(), unique.end());
     unique.resize(std::distance(unique.begin(), ip));
 
-    std::cout << "Number of flatzone / Number of pixels: " << (double)unique.size() << " / " << (double)nb_site << std::endl;
+    std::cout << "Number of flatzone / Number of pixels: " << (double)unique.size() << " / " << (double)nb_site
+              << std::endl;
+}
+
+void dfs_dot(std::ofstream& out, const std::vector<std::vector<int>>& children, const double* levels, int node)
+{
+    out << node << "-> {";
+
+    for (std::size_t i = 0; i < children[node].size(); ++i)
+    {
+        out << children[node][i];
+        if (i != children[node].size() - 1)
+            out << ", ";
+    }
+
+    out << "}" << std::endl;
+    out << node << " [label=\"" << node << " [" << levels[node] << "]\"]" << std::endl;
+
+    for (const auto& child : children[node])
+        dfs_dot(out, children, levels, child);
+}
+
+void save_alpha_tree_dot(const std::string& filename, const int* parent, const double* levels, int nb_nodes)
+{
+    std::ofstream file(filename);
+
+    std::vector<int> roots;
+    std::vector<std::vector<int>> children(nb_nodes, std::vector<int>());
+    for (int i = 0; i < nb_nodes; ++i)
+    {
+        int p = parent[i];
+        if (p == i)
+            roots.push_back(i);
+        else
+            children[p].push_back(i);
+    }
+
+    file << "digraph D {" << std::endl;
+
+    for (const auto& root : roots)
+        dfs_dot(file, children, levels, root);
+
+    file << "}" << std::endl;
 }
 
 int main()
@@ -170,7 +214,8 @@ int main()
     int height = 6;
     int width = 2;
 
-    int new_height = (height + (BlockHeight - 1) * (int)std::floor((float)height / BlockHeight) + std::max(((height % BlockHeight) - 1), 0));
+    int new_height = (height + (BlockHeight - 1) * (int)std::floor((float)height / BlockHeight) +
+                      std::max(((height % BlockHeight) - 1), 0));
 
     int nb_nodes = width * new_height;
 
@@ -223,6 +268,8 @@ int main()
     for (int i = 0; i < nb_nodes; ++i)
         std::cout << "Node: " << i << ", Parent: " << m_parent[i] << ", Level: " << m_levels[i] << std::endl;
 
+    save_alpha_tree_dot("before_merge.dot", m_parent, m_levels, nb_nodes);
+
     std::cout << std::endl
               << "Merge alpha tree per column:" << std::endl;
 
@@ -233,6 +280,8 @@ int main()
 
     for (int i = 0; i < nb_nodes; ++i)
         std::cout << "Node: " << i << ", Parent: " << m_parent[i] << ", Level: " << m_levels[i] << std::endl;
+
+    save_alpha_tree_dot("after_merge.dot", m_parent, m_levels, nb_nodes);
 
     cudaFree(m_image);
     cudaFree(m_parent);
