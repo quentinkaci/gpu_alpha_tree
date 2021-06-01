@@ -8,6 +8,10 @@ set(SRC
     src/gpu_implem/cc_labelling.cu
     src/gpu_implem/graph_creation.cu
     src/utils/image.cu)
+
+set(TESTS
+    tests/test_example.cc)
+
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CUDA_STANDARD 14)
 set(OPT_FLAGS "-Ofast -march=native -flto")
@@ -23,6 +27,9 @@ include_directories("/home/theo.lepage/afs/libs/")
 find_package(PNG REQUIRED)
 
 include(FetchContent)
+FetchContent_Declare(
+        GoogleTest
+        URL https://github.com/google/googletest/archive/refs/tags/v1.10.x.tar.gz)
 FetchContent_Declare(
         GoogleBenchmark
         URL https://github.com/google/benchmark/archive/v1.4.1.tar.gz)
@@ -40,6 +47,8 @@ if (NOT GoogleBenchmark_POPULATED)
         add_subdirectory(${googlebenchmark_SOURCE_DIR} ${googlebenchmark_BINARY_DIR})
 endif()
 
+FetchContent_MakeAvailable(GoogleTest)
+enable_testing()
 FetchContent_MakeAvailable(CLI11)
 FetchContent_MakeAvailable(spdlog)
 
@@ -57,3 +66,10 @@ target_link_libraries(main PRIVATE gpu_alpha_tree CLI11::CLI11)
 # Create target `bench`
 add_executable(bench src/bench.cc)
 target_link_libraries(bench PRIVATE gpu_alpha_tree benchmark)
+
+# Create target `tests`
+add_executable(tests ${TESTS})
+target_link_libraries(tests PRIVATE gpu_alpha_tree gtest_main)
+
+include(GoogleTest)
+gtest_discover_tests(tests)

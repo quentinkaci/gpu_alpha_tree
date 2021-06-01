@@ -9,10 +9,6 @@ make
 ./bench
 ```
 
-## To-Do
-
-- [ ] Add some unit tests
-
 ## Authors
 
 - quentin.kaci
