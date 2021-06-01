@@ -1,13 +1,19 @@
 # gpu_alpha_tree
 
-## Usage
+### Build
 
 ```
 mkdir build && cd build && cmake .. -DCMAKE_BUILD_TYPE=Release
 make
-./main -i ../resources/batiment.png -m GPU
-./bench
 ```
+
+## Usage
+
+```
+./main -i ../resources/batiment.png -m GPU
+```
+
+You can run benchmarks with `./bench` and unit tests with `./tests`.
 
 ## Authors
 
