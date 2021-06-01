@@ -128,46 +128,46 @@ int main()
     //    cudaFree(m_labels);
     //    cudaFree(m_residual_list);
 
-    RGBPixel image[24] = {
+    RGBPixel image[12] = {
         {100, 100, 100},
-        {100, 100, 100},
+        {20, 45, 79},
 
         {100, 100, 150},
         {100, 100, 150},
 
         {20, 45, 79},
-        {20, 45, 79},
+        {100, 100, 100},
 
         {100, 100, 100},
-        {100, 100, 100},
+        {20, 45, 79},
 
         {100, 100, 150},
         {100, 100, 150},
 
         {20, 45, 79},
-        {20, 45, 79},
+        {100, 100, 100},
 
         //
 
-        {100, 100, 100},
-        {100, 100, 100},
-
-        {100, 100, 150},
-        {100, 100, 150},
-
-        {20, 45, 79},
-        {20, 45, 79},
-
-        {100, 100, 100},
-        {100, 100, 100},
-
-        {100, 100, 150},
-        {100, 100, 150},
-
-        {20, 45, 79},
-        {20, 45, 79},
+        //        {100, 100, 100},
+        //        {100, 100, 100},
+        //
+        //        {100, 100, 150},
+        //        {100, 100, 150},
+        //
+        //        {20, 45, 79},
+        //        {20, 45, 79},
+        //
+        //        {100, 100, 100},
+        //        {100, 100, 100},
+        //
+        //        {100, 100, 150},
+        //        {100, 100, 150},
+        //
+        //        {20, 45, 79},
+        //        {20, 45, 79},
     };
-    int height = 10;
+    int height = 6;
     int width = 2;
 
     int new_height = (height + (BlockHeight - 1) * (int)std::floor((float)height / BlockHeight) + std::max(((height % BlockHeight) - 1), 0));
@@ -193,6 +193,9 @@ int main()
     rc = cudaMallocManaged(&m_levels, nb_nodes * sizeof(double));
     if (rc)
         abortError("Fail M_LEVELS allocation");
+    rc = cudaMemset(m_levels, 0, nb_nodes * sizeof(double));
+    if (rc)
+        abortError("Fail M_LEVELS memset");
 
     int w = std::ceil((float)width / BlockHeight);
     int h = std::ceil((float)new_height / BlockHeight);
@@ -210,17 +213,26 @@ int main()
     dimBlock = dim3(BlockHeight, 1);
     dimGrid = dim3(w, h);
 
+    std::cout << std::endl
+              << "Build an alpha tree per column:" << std::endl;
+
     build_alpha_tree_col<BlockHeight><<<dimGrid, dimBlock>>>(m_image, m_parent, m_levels, height, width);
 
     cudaDeviceSynchronize();
 
     for (int i = 0; i < nb_nodes; ++i)
-    {
-        std::cout << m_parent[i] << ", ";
-        if (i == height * width - 1)
-            std::cout << ::std::endl;
-    }
-    std::cout << std::endl;
+        std::cout << "Node: " << i << ", Parent: " << m_parent[i] << ", Level: " << m_levels[i] << std::endl;
+
+    std::cout << std::endl
+              << "Merge alpha tree per column:" << std::endl;
+
+    // FIXME Modify block and grid dim according to the reduce
+    merge_alpha_tree_col<BlockHeight><<<1, 1>>>(m_image, m_parent, m_levels, height, width);
+
+    cudaDeviceSynchronize();
+
+    for (int i = 0; i < nb_nodes; ++i)
+        std::cout << "Node: " << i << ", Parent: " << m_parent[i] << ", Level: " << m_levels[i] << std::endl;
 
     cudaFree(m_image);
     cudaFree(m_parent);

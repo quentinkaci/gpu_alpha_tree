@@ -45,7 +45,7 @@ inline __global__ void build_alpha_tree_col(RGBPixel* image, int* parent, double
     if (x >= width || y >= height)
         return;
 
-    //    if (x != 1 || y != 6)
+    //    if (x != 1 || y != 0)
     //        return;
 
     double weights[BlockHeight - 1];
@@ -99,6 +99,103 @@ inline __global__ void build_alpha_tree_col(RGBPixel* image, int* parent, double
             parent[rq] = new_node;
 
             levels[new_node] = w;
+        }
+    }
+}
+
+inline __device__ int find_last_leq(const int* parent, const double* levels, int node, double val)
+{
+    int p = node;
+
+    while (levels[parent[p]] <= val)
+        p = parent[p];
+
+    return p;
+}
+
+inline __device__ int merge(int* parent, const double* levels, int p, int q)
+{
+    if (levels[q] > levels[p])
+    {
+        parent[p] = q;
+        return q;
+    }
+    else
+    {
+        parent[q] = p;
+        return p;
+    }
+}
+
+template <int BlockHeight>
+inline __global__ void merge_alpha_tree_col(RGBPixel* image, int* parent, double* levels, int height, int width)
+{
+    int x = blockDim.x * blockIdx.x + threadIdx.x;
+    int y = BlockHeight * blockIdx.y;
+
+    if (x >= width || y >= height)
+        return;
+
+    //    printf("x: %d, y: %d\n", x, y);
+
+    int nb_pix_col = min(height - y, BlockHeight);
+
+    int leaf_offset;
+    if ((blockIdx.y + 1) * BlockHeight >= height) // Last line
+        leaf_offset = BlockHeight * width * blockIdx.y + nb_pix_col * x;
+    else
+        leaf_offset = BlockHeight * (x + blockIdx.y * width);
+
+    //    printf("Leaf offset: %d\n", leaf_offset);
+
+    // Iterate on border edges
+    for (int i = leaf_offset; i < leaf_offset + nb_pix_col; ++i)
+    {
+        // Merge with column on the right
+        int p1 = i;
+        int p2 = i + BlockHeight;
+        double dist = l2_dist(image[x + (y + i) * width], image[(x + 1) + (y + i) * width]);
+
+        //        printf("(src: %d, dst: %d, w: %f)\n", p1, p2, dist);
+
+        int n1 = find_last_leq(parent, levels, p1, dist);
+        int n2 = find_last_leq(parent, levels, p2, dist);
+
+        // FIXME Wrong if the edge has a higher weight than the root of sub-trees.
+        //       In this case we have to create a new node: Where to store it ?
+        int a = parent[n1];
+        int b = parent[n2];
+
+        int n = merge(parent, levels, n1, n2);
+
+        if (levels[a] > levels[b])
+        {
+            int tmp = a;
+            a = b;
+            b = tmp;
+        }
+
+        parent[n] = a;
+
+        while (a != b)
+        {
+            if (levels[a] == levels[b])
+            {
+                b = parent[b];
+                n = merge(parent, levels, a, b);
+                a = parent[a];
+            }
+            else
+                a = parent[a];
+
+            if (levels[a] > levels[b])
+            {
+                parent[n] = b;
+
+                int tmp = a;
+                a = b;
+                b = tmp;
+            }
         }
     }
 }
