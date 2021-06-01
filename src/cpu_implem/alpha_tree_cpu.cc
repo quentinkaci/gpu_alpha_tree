@@ -41,7 +41,7 @@ static std::vector<GraphEdge> create_graph(const std::shared_ptr<RGBImage>& imag
     return edges;
 }
 
-static uint find(const std::vector<uint>& par, const uint val)
+static uint find(std::vector<uint>& par, uint val)
 {
     uint p = val;
     uint q = par[val];
@@ -51,8 +51,17 @@ static uint find(const std::vector<uint>& par, const uint val)
         p = q;
         q = par[p];
     }
-    
+
     const uint r = p;
+
+    // Path compression to optimize next find
+    while (val != r)
+    {
+        q = par[val];
+        par[val] = r;
+        val = q;
+    }
+    
     return r;
 }
 
@@ -80,7 +89,7 @@ static std::vector<uint> compute_flatzones(const std::shared_ptr<RGBImage>& imag
     return zpar;
 }
 
-static std::vector<int> create_node_map(const std::vector<uint>& zpar, uint& flatzones_count)
+static std::vector<int> create_node_map(std::vector<uint>& zpar, uint& flatzones_count)
 {
     flatzones_count = 0;
     
@@ -109,6 +118,9 @@ static AlphaTree compute_hierarchy(const std::vector<GraphEdge>& edges,
     std::vector<uint> par(2 * node_count - 1);
     std::iota(par.begin(), par.end(), 0);
 
+    std::vector<uint> zpar(2 * node_count - 1);
+    std::iota(zpar.begin(), zpar.end(), 0);
+
     std::vector<uint> levels(2 * node_count - 1, 0);
 
     for (uint i = 0; i < edges.size() && edges[i].weight != 0; i++)
@@ -117,8 +129,8 @@ static AlphaTree compute_hierarchy(const std::vector<GraphEdge>& edges,
         const uint q = edges[i].dst;
         const float weight = edges[i].weight;
 
-        uint rp = find(par, node_map[p]);
-        uint rq = find(par, node_map[q]);
+        const uint rp = find(zpar, node_map[p]);
+        const uint rq = find(zpar, node_map[q]);
 
         if (rp != rq)
         {
@@ -128,6 +140,8 @@ static AlphaTree compute_hierarchy(const std::vector<GraphEdge>& edges,
             levels[new_root_id] = weight;
             par[rp] = new_root_id;
             par[rq] = new_root_id;
+            zpar[rp] = new_root_id;
+            zpar[rq] = new_root_id;
         }
     }
 
