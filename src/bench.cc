@@ -22,7 +22,7 @@ void bench_gpu(benchmark::State& st)
     {
         auto image = utils::RGBImage::load("../resources/batiment.png");
 
-    alpha_tree_gpu(image);
+        alpha_tree_gpu(image);
     }
 
     st.counters["frame_rate"] = benchmark::Counter(st.iterations(), benchmark::Counter::kIsRate);

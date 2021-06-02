@@ -19,7 +19,7 @@ int main(int argc, char** argv)
 
     auto image = utils::RGBImage::load(path);
     if (mode == "GPU")
-        alpha_tree_gpu(image, true);
+        alpha_tree_gpu(image);
     else if (mode == "CPU")
         alpha_tree_cpu(image);
     image->save("output.png");
