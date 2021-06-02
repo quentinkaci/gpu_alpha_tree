@@ -26,14 +26,14 @@ static std::vector<GraphEdge> create_graph(const std::shared_ptr<RGBImage>& imag
             {
                 const RGBPixel dst = image->pixels[x + (y + 1) * image->width];
                 const float w = gradient(src, dst);
-                edges.emplace_back(x + y * image->width, x + (y + 1) * image->width, w);
+                edges.push_back({ x + y * image->width, x + (y + 1) * image->width, w });
             }
 
             if (x != image->width - 1)
             {
                 const RGBPixel dst = image->pixels[(x + 1) + y * image->width];
                 const float w = gradient(src, dst);
-                edges.emplace_back(x + y * image->width, (x + 1) + y * image->width, w);
+                edges.push_back({ x + y * image->width, (x + 1) + y * image->width, w });
             }
         }
     }

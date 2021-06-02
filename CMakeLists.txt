@@ -58,7 +58,7 @@ FetchContent_MakeAvailable(spdlog)
 add_library(gpu_alpha_tree)
 target_sources(gpu_alpha_tree PRIVATE ${SRC})
 set_target_properties(gpu_alpha_tree PROPERTIES CUDA_SEPARABLE_COMPILATION ON)
-target_link_libraries(gpu_alpha_tree PUBLIC Thrust::Thrust Thrust ${PNG_LIBRARY} spdlog::spdlog)
+target_link_libraries(gpu_alpha_tree PUBLIC Thrust::Thrust ${PNG_LIBRARY} spdlog::spdlog)
 target_include_directories(gpu_alpha_tree PUBLIC src/)
 
 # Create target `main`
