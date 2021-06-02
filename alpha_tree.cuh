@@ -155,6 +155,13 @@ inline __global__ void merge_alpha_tree_col(RGBPixel* image, int* parent, double
 
     //    printf("Leaf offset: %d\n", leaf_offset);
 
+    // Merge with column on the right
+    int rl = find(parent, leaf_offset);
+    int rr = find(parent, leaf_offset + BlockHeight);
+
+    // Merge root node
+    merge(parent, levels, rl, rr);
+
     // Iterate on border edges
     for (int i = leaf_offset; i < leaf_offset + nb_pix_col; ++i)
     {
