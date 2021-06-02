@@ -3,24 +3,24 @@ project(gpu_alpha_tree CXX CUDA)
 
 # Set compile flags and sources paths
 set(SRC
-    src/cpu_implem/alpha_tree_cpu.cc
-    src/gpu_implem/alpha_tree_gpu.cu
-    src/gpu_implem/cc_labelling.cu
-    src/gpu_implem/graph_creation.cu
-    src/utils/image.cu)
+        src/cpu_implem/alpha_tree_cpu.cc
+        src/gpu_implem/alpha_tree_gpu.cu
+        src/gpu_implem/cc_labelling.cu
+        src/gpu_implem/graph_creation.cu
+        src/utils/image.cu)
 
 set(TESTS
-    tests/test_example.cc)
+        tests/test_example.cc)
 
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CUDA_STANDARD 14)
 set(OPT_FLAGS "-Ofast -march=native -flto")
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -W -Wall")
 set(CMAKE_CXX_FLAGS_RELEASE "${CMAKE_CXX_FLAGS_RELEASE} ${OPT_FLAGS}")
-set(CMAKE_CXX_FLAGS_DEBUG "${CMAKE_CXX_FLAGS_DEBUG} -O0 -g3 -fsanitize=address")
+set(CMAKE_CXX_FLAGS_DEBUG "${CMAKE_CXX_FLAGS_DEBUG} -O0 -g3")
 
 # Temp to work on OpenStack
-set(CMAKE_PREFIX_PATH "$HOME/afs/libs/")
+set(CMAKE_PREFIX_PATH " $HOME/afs/libs/")
 include_directories("/home/theo.lepage/afs/libs/")
 
 # Find packages: PNG, GoogleBenchmark, CLI11, spdlog
@@ -43,11 +43,11 @@ FetchContent_Declare(
         URL https://github.com/gabime/spdlog/archive/v1.4.2.tar.gz)
 
 if (NOT GoogleBenchmark_POPULATED)
-        FetchContent_Populate(GoogleBenchmark)
-        set(BENCHMARK_ENABLE_GTEST_TESTS OFF CACHE BOOL "From Gtest")
-        set(BENCHMARK_ENABLE_TESTING OFF CACHE BOOL "From Gtest")
-        add_subdirectory(${googlebenchmark_SOURCE_DIR} ${googlebenchmark_BINARY_DIR})
-endif()
+    FetchContent_Populate(GoogleBenchmark)
+    set(BENCHMARK_ENABLE_GTEST_TESTS OFF CACHE BOOL "From Gtest")
+    set(BENCHMARK_ENABLE_TESTING OFF CACHE BOOL "From Gtest ")
+    add_subdirectory(${googlebenchmark_SOURCE_DIR} ${googlebenchmark_BINARY_DIR})
+endif ()
 
 FetchContent_MakeAvailable(GoogleTest)
 enable_testing()

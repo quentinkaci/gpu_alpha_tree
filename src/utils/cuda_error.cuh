@@ -7,6 +7,7 @@ inline void _abortError(const char* msg, const char* fname)
 {
     cudaError_t err = cudaGetLastError();
     std::cerr << "Error: " << err << std::endl;
+    std::cerr << msg << std::endl;
     std::exit(1);
 }
 
