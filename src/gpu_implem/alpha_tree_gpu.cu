@@ -1,7 +1,7 @@
 #include "alpha_tree.cuh"
 #include "cc_labelling.cuh"
-#include "utils/cuda_error.cuh"
 #include "graph_creation.cuh"
+#include "utils/cuda_error.cuh"
 
 #include "utils/image.cuh"
 
@@ -214,8 +214,7 @@ void alpha_tree_gpu(const std::shared_ptr<utils::RGBImage>&)
     int height = 6;
     int width = 2;
 
-    int new_height = (height + (BlockHeight - 1) * (int)std::floor((float)height / BlockHeight) +
-                      std::max(((height % BlockHeight) - 1), 0));
+    int new_height = (height + 2 * BlockHeight * (int)std::ceil((float)height / BlockHeight));
 
     int nb_nodes = width * new_height;
 
