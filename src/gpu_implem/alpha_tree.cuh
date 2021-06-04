@@ -157,11 +157,11 @@ __global__ void merge_alpha_tree_col(RGBPixel* image, int* parent, double* level
     merge(parent, levels, rl, rr);
 
     // Iterate on border edges
-    for (int i = leaf_offset; i < leaf_offset + nb_pix_col; ++i)
+    for (int i = 0; i < nb_pix_col; ++i)
     {
         // Merge with column on the right
-        int p = i;
-        int q = i + BlockHeight;
+        int p = i + leaf_offset;
+        int q = i + leaf_offset + BlockHeight;
         double dist = l2_dist(image[x + (y + i) * width], image[(x + 1) + (y + i) * width]);
 
         int c1 = find_intersection(parent, levels, p, dist);
