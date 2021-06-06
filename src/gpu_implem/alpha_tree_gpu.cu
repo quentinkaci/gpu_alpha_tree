@@ -272,8 +272,7 @@ void alpha_tree_gpu(const std::shared_ptr<utils::RGBImage>&)
     std::cout << std::endl
               << "Merge alpha tree per column:" << std::endl;
 
-    // FIXME Modify block and grid dim according to the reduce
-    merge_alpha_tree_col<BlockHeight><<<1, 1>>>(m_image, m_parent, m_levels, height, width);
+    merge_alpha_tree_col<BlockHeight><<<dimGrid, dimBlock>>>(m_image, m_parent, m_levels, height, width);
 
     cudaDeviceSynchronize();
 
