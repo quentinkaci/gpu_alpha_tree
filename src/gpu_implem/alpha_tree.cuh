@@ -6,7 +6,7 @@
 
 using namespace utils;
 
-__global__ void init_parent(int* parent, int height, int width)
+inline __global__ void init_parent(int* parent, int height, int width)
 {
     int x = blockDim.x * blockIdx.x + threadIdx.x;
     int y = blockDim.y * blockIdx.y + threadIdx.y;
@@ -37,7 +37,7 @@ inline __device__ int find(const int* parent, int val)
 }
 
 template <int BlockHeight>
-__global__ void build_alpha_tree_col(RGBPixel* image, int* parent, double* levels, int height, int width)
+inline __global__ void build_alpha_tree_col(RGBPixel* image, int* parent, double* levels, int height, int width)
 {
     int x = blockDim.x * blockIdx.x + threadIdx.x;
     int y = BlockHeight * blockIdx.y;
@@ -132,7 +132,7 @@ inline __device__ void canonize_tree(int* parent, const double* levels, int leav
 }
 
 template <int BlockHeight>
-__global__ void merge_alpha_tree_col(RGBPixel* image, int* parent, double* levels, int height, int width)
+inline __global__ void merge_alpha_tree_col(RGBPixel* image, int* parent, double* levels, int height, int width)
 {
     int x = blockDim.x * blockIdx.x + threadIdx.x;
     int y = BlockHeight * blockIdx.y;
@@ -167,7 +167,6 @@ __global__ void merge_alpha_tree_col(RGBPixel* image, int* parent, double* level
         int c1 = find_intersection(parent, levels, p, dist);
         int c2 = find_intersection(parent, levels, q, dist);
 
-        // FIXME Maybe wrong if the edge has a higher weight than the root of sub-trees: units tests
         int p1 = parent[c1];
         int p2 = parent[c2];
 
@@ -183,7 +182,7 @@ __global__ void merge_alpha_tree_col(RGBPixel* image, int* parent, double* level
             p2 = tmp;
         }
 
-        parent[n] = p1;
+        merge(parent, levels, n, p1);
 
         while (p1 != p2)
         {
@@ -200,7 +199,8 @@ __global__ void merge_alpha_tree_col(RGBPixel* image, int* parent, double* level
 
             if (levels[p1] > levels[p2])
             {
-                parent[n] = p2;
+                if (n != p2)
+                    parent[n] = p2;
 
                 int tmp = p1;
                 p1 = p2;
