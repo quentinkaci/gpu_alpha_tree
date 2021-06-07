@@ -64,7 +64,7 @@ inline __global__ void build_alpha_tree_col(RGBPixel* image, int* parent, double
 
         sources[i] = leaf_offset + i;
     }
-    thrust::sort_by_key(thrust::device, weights, weights + (nb_pix_col - 1), sources);
+    thrust::sort_by_key(thrust::seq, weights, weights + (nb_pix_col - 1), sources);
 
     for (int i = 0; i < (nb_pix_col - 1); ++i)
     {
@@ -137,75 +137,81 @@ inline __global__ void merge_alpha_tree_col(RGBPixel* image, int* parent, double
     int x = blockDim.x * blockIdx.x + threadIdx.x;
     int y = BlockHeight * blockIdx.y;
 
-    if (x >= width || y >= height)
-        return;
-
-    int nb_pix_col = min(height - y, BlockHeight);
-
-    int leaf_offset;
-    if ((blockIdx.y + 1) * BlockHeight >= height) // Last line
-        leaf_offset = BlockHeight * width * blockIdx.y + nb_pix_col * x;
-    else
-        leaf_offset = BlockHeight * (x + blockIdx.y * width);
-    int parent_offset = width * height + 2 * BlockHeight * (x + blockIdx.y * width);
-
-    // Merge with column on the right
-    int rl = find(parent, leaf_offset);
-    int rr = find(parent, leaf_offset + BlockHeight);
-
-    // Merge root node
-    merge(parent, levels, rl, rr);
-
-    // Iterate on border edges
-    for (int i = 0; i < nb_pix_col; ++i)
+    for (int stride = 1; stride <= blockDim.x; stride *= 2)
     {
-        // Merge with column on the right
-        int p = i + leaf_offset;
-        int q = i + leaf_offset + BlockHeight;
-        double dist = l2_dist(image[x + (y + i) * width], image[(x + 1) + (y + i) * width]);
 
-        int c1 = find_intersection(parent, levels, p, dist);
-        int c2 = find_intersection(parent, levels, q, dist);
-
-        int p1 = parent[c1];
-        int p2 = parent[c2];
-
-        int n = parent_offset + BlockHeight + i;
-        parent[c1] = n;
-        parent[c2] = n;
-        levels[n] = dist;
-
-        if (levels[p1] > levels[p2])
+        if (threadIdx.x % stride == 0 && x < width && y < height)
         {
-            int tmp = p1;
-            p1 = p2;
-            p2 = tmp;
-        }
+            int nb_pix_col = min(height - y, BlockHeight);
 
-        merge(parent, levels, n, p1);
-
-        while (p1 != p2)
-        {
-            if (levels[p1] == levels[p2])
-            {
-                int p1_ = parent[p1];
-                int p2_ = parent[p2];
-                n = merge(parent, levels, p1, p2);
-                p1 = p1_;
-                p2 = p2_;
-            }
+            int leaf_offset;
+            if ((blockIdx.y + 1) * BlockHeight >= height) // Last line
+                leaf_offset = BlockHeight * width * blockIdx.y + nb_pix_col * x;
             else
-                p1 = parent[p1];
+                leaf_offset = BlockHeight * (x + blockIdx.y * width);
+            int parent_offset = width * height + 2 * BlockHeight * (x + blockIdx.y * width);
 
-            if (levels[p1] > levels[p2])
+            // Merge with column on the right
+            int rl = find(parent, leaf_offset);
+            int rr = find(parent, leaf_offset + BlockHeight * stride);
+
+            // Merge root node
+            merge(parent, levels, rl, rr);
+
+            // Iterate on border edges
+            for (int i = 0; i < nb_pix_col; ++i)
             {
-                if (n != p2)
-                    parent[n] = p2;
+                // Merge with column on the right
+                int p = i + leaf_offset;
+                int q = i + leaf_offset + BlockHeight * stride;
+                double dist = l2_dist(image[x + (y + i) * width], image[(x + 1) + (y + i) * width]);
 
-                int tmp = p1;
-                p1 = p2;
-                p2 = tmp;
+                int c1 = find_intersection(parent, levels, p, dist);
+                int c2 = find_intersection(parent, levels, q, dist);
+
+                int p1 = parent[c1];
+                int p2 = parent[c2];
+
+                int n = parent_offset + BlockHeight + i;
+                parent[c1] = n;
+                parent[c2] = n;
+                levels[n] = dist;
+
+                if (levels[p1] > levels[p2])
+                {
+                    int tmp = p1;
+                    p1 = p2;
+                    p2 = tmp;
+                }
+
+                merge(parent, levels, n, p1);
+
+                while (p1 != p2)
+                {
+                    if (levels[p1] == levels[p2])
+                    {
+                        int p1_ = parent[p1];
+                        int p2_ = parent[p2];
+                        n = merge(parent, levels, p1, p2);
+                        p1 = p1_;
+                        p2 = p2_;
+                    }
+                    else
+                        p1 = parent[p1];
+
+                    if (levels[p1] > levels[p2])
+                    {
+                        if (n != p2)
+                            parent[n] = p2;
+
+                        int tmp = p1;
+                        p1 = p2;
+                        p2 = tmp;
+                    }
+                }
             }
         }
+
+        __syncthreads();
     }
 }
