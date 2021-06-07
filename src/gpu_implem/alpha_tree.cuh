@@ -6,7 +6,7 @@
 
 using namespace utils;
 
-__global__ void init_parent(int* parent, int height, int width)
+inline __global__ void init_parent(int* parent, int height, int width)
 {
     int x = blockDim.x * blockIdx.x + threadIdx.x;
     int y = blockDim.y * blockIdx.y + threadIdx.y;
@@ -37,7 +37,7 @@ inline __device__ int find(const int* parent, int val)
 }
 
 template <int BlockHeight>
-__global__ void build_alpha_tree_col(RGBPixel* image, int* parent, double* levels, int height, int width)
+inline __global__ void build_alpha_tree_col(RGBPixel* image, int* parent, double* levels, int height, int width)
 {
     int x = blockDim.x * blockIdx.x + threadIdx.x;
     int y = BlockHeight * blockIdx.y;
@@ -64,7 +64,7 @@ __global__ void build_alpha_tree_col(RGBPixel* image, int* parent, double* level
 
         sources[i] = leaf_offset + i;
     }
-    thrust::sort_by_key(thrust::device, weights, weights + (nb_pix_col - 1), sources);
+    thrust::sort_by_key(thrust::seq, weights, weights + (nb_pix_col - 1), sources);
 
     for (int i = 0; i < (nb_pix_col - 1); ++i)
     {
@@ -132,84 +132,82 @@ inline __device__ void canonize_tree(int* parent, const double* levels, int leav
 }
 
 template <int BlockHeight>
-__global__ void merge_alpha_tree_col(RGBPixel* image, int* parent, double* levels, int height, int width)
+inline __global__ void merge_alpha_tree_col(RGBPixel* image, int* parent, double* levels, int height, int width)
 {
     int x = blockDim.x * blockIdx.x + threadIdx.x;
     int y = BlockHeight * blockIdx.y;
 
-    for (int stride = blockDim.x * BlockHeight; stride >= 1; stride /= 2)
+    for (int stride = 1; stride <= blockDim.x; stride *= 2)
     {
-        if (threadIdx.x * BlockHeight >= stride || x >= width || y >= height)
+
+        if (threadIdx.x % stride == 0 && x < width && y < height)
         {
-            __syncthreads();
-            continue;
-        }
+            int nb_pix_col = min(height - y, BlockHeight);
 
-        int nb_pix_col = min(height - y, BlockHeight);
+            int leaf_offset;
+            if ((blockIdx.y + 1) * BlockHeight >= height) // Last line
+                leaf_offset = BlockHeight * width * blockIdx.y + nb_pix_col * x;
+            else
+                leaf_offset = BlockHeight * (x + blockIdx.y * width);
+            int parent_offset = width * height + 2 * BlockHeight * (x + blockIdx.y * width);
 
-        int leaf_offset;
-        if ((blockIdx.y + 1) * BlockHeight >= height) // Last line
-            leaf_offset = BlockHeight * width * blockIdx.y + nb_pix_col * x;
-        else
-            leaf_offset = BlockHeight * (x + blockIdx.y * width);
-        int parent_offset = width * height + 2 * BlockHeight * (x + blockIdx.y * width);
-
-        // Merge with column on the right
-        int rl = find(parent, leaf_offset);
-        int rr = find(parent, leaf_offset + stride);
-
-        // Merge root node
-        merge(parent, levels, rl, rr);
-
-        // Iterate on border edges
-        for (int i = 0; i < nb_pix_col; ++i)
-        {
             // Merge with column on the right
-            int p = i + leaf_offset;
-            int q = i + leaf_offset + stride;
-            double dist = l2_dist(image[x + (y + i) * width], image[(x + 1) + (y + i) * width]);
+            int rl = find(parent, leaf_offset);
+            int rr = find(parent, leaf_offset + BlockHeight * stride);
 
-            int c1 = find_intersection(parent, levels, p, dist);
-            int c2 = find_intersection(parent, levels, q, dist);
+            // Merge root node
+            merge(parent, levels, rl, rr);
 
-            // FIXME Maybe wrong if the edge has a higher weight than the root of sub-trees: units tests
-            int p1 = parent[c1];
-            int p2 = parent[c2];
-
-            int n = parent_offset + BlockHeight + i;
-            parent[c1] = n;
-            parent[c2] = n;
-            levels[n] = dist;
-
-            if (levels[p1] > levels[p2])
+            // Iterate on border edges
+            for (int i = 0; i < nb_pix_col; ++i)
             {
-                int tmp = p1;
-                p1 = p2;
-                p2 = tmp;
-            }
+                // Merge with column on the right
+                int p = i + leaf_offset;
+                int q = i + leaf_offset + BlockHeight * stride;
+                double dist = l2_dist(image[x + (y + i) * width], image[(x + 1) + (y + i) * width]);
 
-            parent[n] = p1;
+                int c1 = find_intersection(parent, levels, p, dist);
+                int c2 = find_intersection(parent, levels, q, dist);
 
-            while (p1 != p2)
-            {
-                if (levels[p1] == levels[p2])
-                {
-                    int p1_ = parent[p1];
-                    int p2_ = parent[p2];
-                    n = merge(parent, levels, p1, p2);
-                    p1 = p1_;
-                    p2 = p2_;
-                }
-                else
-                    p1 = parent[p1];
+                int p1 = parent[c1];
+                int p2 = parent[c2];
+
+                int n = parent_offset + BlockHeight + i;
+                parent[c1] = n;
+                parent[c2] = n;
+                levels[n] = dist;
 
                 if (levels[p1] > levels[p2])
                 {
-                    parent[n] = p2;
-
                     int tmp = p1;
                     p1 = p2;
                     p2 = tmp;
+                }
+
+                merge(parent, levels, n, p1);
+
+                while (p1 != p2)
+                {
+                    if (levels[p1] == levels[p2])
+                    {
+                        int p1_ = parent[p1];
+                        int p2_ = parent[p2];
+                        n = merge(parent, levels, p1, p2);
+                        p1 = p1_;
+                        p2 = p2_;
+                    }
+                    else
+                        p1 = parent[p1];
+
+                    if (levels[p1] > levels[p2])
+                    {
+                        if (n != p2)
+                            parent[n] = p2;
+
+                        int tmp = p1;
+                        p1 = p2;
+                        p2 = tmp;
+                    }
                 }
             }
         }

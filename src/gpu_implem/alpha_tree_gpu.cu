@@ -172,47 +172,39 @@ void alpha_tree_gpu(const std::shared_ptr<utils::RGBImage>&)
     //    cudaFree(m_labels);
     //    cudaFree(m_residual_list);
 
-    RGBPixel image[12] = {
+    RGBPixel image[24] = {
         {100, 100, 100},
-        {20, 45, 79},
-
         {100, 100, 150},
-        {100, 100, 150},
-
-        {20, 45, 79},
-        {100, 100, 100},
+        {100, 100, 200},
+        {100, 200, 200},
 
         {100, 100, 100},
-        {20, 45, 79},
-
         {100, 100, 150},
-        {100, 100, 150},
+        {100, 100, 200},
+        {100, 200, 200},
 
-        {20, 45, 79},
         {100, 100, 100},
+        {250, 100, 150},
+        {250, 100, 200},
+        {100, 200, 200},
 
-        //
+        {100, 100, 100},
+        {250, 100, 150},
+        {250, 100, 200},
+        {100, 200, 200},
 
-        //        {100, 100, 100},
-        //        {100, 100, 100},
-        //
-        //        {100, 100, 150},
-        //        {100, 100, 150},
-        //
-        //        {20, 45, 79},
-        //        {20, 45, 79},
-        //
-        //        {100, 100, 100},
-        //        {100, 100, 100},
-        //
-        //        {100, 100, 150},
-        //        {100, 100, 150},
-        //
-        //        {20, 45, 79},
-        //        {20, 45, 79},
+        {100, 100, 100},
+        {100, 100, 150},
+        {100, 100, 200},
+        {100, 200, 200},
+
+        {100, 100, 100},
+        {100, 100, 150},
+        {100, 100, 200},
+        {100, 200, 200},
     };
     int height = 6;
-    int width = 2;
+    int width = 4;
 
     int new_height = (height + 2 * BlockHeight * (int)std::ceil((float)height / BlockHeight));
 
@@ -272,6 +264,7 @@ void alpha_tree_gpu(const std::shared_ptr<utils::RGBImage>&)
     std::cout << std::endl
               << "Merge alpha tree per column:" << std::endl;
 
+    // FIXME Modify block and grid dim according to the reduce
     merge_alpha_tree_col<BlockHeight><<<dimGrid, dimBlock>>>(m_image, m_parent, m_levels, height, width);
 
     cudaDeviceSynchronize();
