@@ -100,7 +100,7 @@ TEST(test_basic_merge, MergeTwoColumns)
     double expected_levels[] = {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 50, 50, 99.3277, 120.275, 120.275, 0, 99.3277, 0, 99.3277, 99.3277, 0, 99.3277, 50, 50, 99.3277, 120.275, 120.275, 0, 0, 0, 0, 0, 0, 0, };
     // clang-format on
 
-    assert_alpha_tree_eq(image, 6, 2, expected_parent, expected_levels, 1, 1);
+    assert_alpha_tree_eq(image, 6, 2, expected_parent, expected_levels, 1, 2);
 }
 
 TEST(test_basic_merge, MergeTwoColumnsOnTwoLines)
@@ -151,7 +151,7 @@ TEST(test_basic_merge, MergeTwoColumnsOnTwoLines)
     double expected_levels[] = {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 50, 50, 99.3277, 120.275, 120.275, 0, 99.3277, 0, 99.3277, 99.3277, 0, 99.3277, 50, 50, 99.3277, 120.275, 120.275, 0, 0, 0, 0, 0, 0, 0, 50, 50, 99.3277, 120.275, 120.275, 0, 99.3277, 0, 99.3277, 99.3277, 0, 99.3277, 50, 50, 99.3277, 120.275, 120.275, 0, 0, 0, 0, 0, 0, 0, };
     // clang-format on
 
-    assert_alpha_tree_eq(image, 12, 2, expected_parent, expected_levels, dim3(1, 2, 1), 1);
+    assert_alpha_tree_eq(image, 12, 2, expected_parent, expected_levels, dim3(1, 2, 1), 2);
 }
 
 TEST(test_basic_merge, LeftColumnFlatZone)
@@ -181,7 +181,7 @@ TEST(test_basic_merge, LeftColumnFlatZone)
     double expected_levels[] = {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 99.3277, 50, 0, 99.3277, 50, 0, 50, 50, 99.3277, 120.275, 120.275, 0, 0, 0, 0, 0, 0, 0, };
     // clang-format on
 
-    assert_alpha_tree_eq(image, 6, 2, expected_parent, expected_levels, 1, 1);
+    assert_alpha_tree_eq(image, 6, 2, expected_parent, expected_levels, 1, 2);
 }
 
 TEST(test_basic_merge, BothColumnFlatZone)
@@ -211,5 +211,5 @@ TEST(test_basic_merge, BothColumnFlatZone)
     double expected_levels[] = {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 50, 50, 50, 50, 50, 50, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, };
     // clang-format on
 
-    assert_alpha_tree_eq(image, 6, 2, expected_parent, expected_levels, 1, 1);
+    assert_alpha_tree_eq(image, 6, 2, expected_parent, expected_levels, 1, 2);
 }

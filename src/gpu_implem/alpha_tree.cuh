@@ -131,6 +131,27 @@ inline __device__ void canonize_tree(int* parent, const double* levels, int leav
     }
 }
 
+inline __device__ bool pre_check_cycle(const int* parent, const double* levels, int p, int q)
+{
+    // FIXME Refactor this function
+
+    if (parent[p] == q)
+        return true;
+
+    while (true)
+    {
+        if (p == q)
+            return true;
+
+        p = parent[p];
+
+        if (parent[p] == p or levels[p] > levels[q])
+            break;
+    }
+
+    return p == q;
+}
+
 template <int BlockHeight>
 inline __global__ void merge_alpha_tree_col(RGBPixel* image, int* parent, double* levels, int height, int width)
 {
@@ -139,31 +160,40 @@ inline __global__ void merge_alpha_tree_col(RGBPixel* image, int* parent, double
 
     for (int stride = 1; stride <= blockDim.x; stride *= 2)
     {
-
-        if (threadIdx.x % stride == 0 && x < width && y < height)
+        if (threadIdx.x % (2 * stride) == 0 && (x + stride) < ((blockIdx.x + 1) * blockDim.x) && y < height)
         {
+            //            if (stride == 8)
+            //                return;
+            //            printf("x: %d, y: %d\n", x, y);
+
             int nb_pix_col = min(height - y, BlockHeight);
 
-            int leaf_offset;
+            int leaf_offset = BlockHeight * (stride - 1);
             if ((blockIdx.y + 1) * BlockHeight >= height) // Last line
-                leaf_offset = BlockHeight * width * blockIdx.y + nb_pix_col * x;
+                leaf_offset += BlockHeight * width * blockIdx.y + nb_pix_col * x;
             else
-                leaf_offset = BlockHeight * (x + blockIdx.y * width);
-            int parent_offset = width * height + 2 * BlockHeight * (x + blockIdx.y * width);
+                leaf_offset += BlockHeight * (x + blockIdx.y * width);
+            int parent_offset = width * height + 2 * BlockHeight * ((x + (stride - 1)) + blockIdx.y * width);
+
+            //            printf("leaf offset: %d\n", leaf_offset);
+            //            printf("parent offset: %d\n", parent_offset);
 
             // Merge with column on the right
             int rl = find(parent, leaf_offset);
-            int rr = find(parent, leaf_offset + BlockHeight * stride);
+            int rr = find(parent, leaf_offset + BlockHeight);
 
             // Merge root node
             merge(parent, levels, rl, rr);
+
+            //            if (stride == 4)
+            //                nb_pix_col = 1;
 
             // Iterate on border edges
             for (int i = 0; i < nb_pix_col; ++i)
             {
                 // Merge with column on the right
                 int p = i + leaf_offset;
-                int q = i + leaf_offset + BlockHeight * stride;
+                int q = i + leaf_offset + BlockHeight;
                 double dist = l2_dist(image[x + (y + i) * width], image[(x + 1) + (y + i) * width]);
 
                 int c1 = find_intersection(parent, levels, p, dist);
@@ -184,11 +214,17 @@ inline __global__ void merge_alpha_tree_col(RGBPixel* image, int* parent, double
                     p2 = tmp;
                 }
 
+                //                printf("p: %d, q: %d, w: %f\n", p, q, dist);
+                //                printf("c1: %d, c2: %d\n", c1, c2);
+                //                printf("p1: %d, p2: %d\n", p1, p2);
+                //                printf("n: %d\n", n);
+
                 merge(parent, levels, n, p1);
 
                 while (p1 != p2)
                 {
-                    if (levels[p1] == levels[p2])
+                    // FIXME Dirty trick
+                    if (levels[p1] == levels[p2] && !pre_check_cycle(parent, levels, p1, p2))
                     {
                         int p1_ = parent[p1];
                         int p2_ = parent[p2];
@@ -201,17 +237,24 @@ inline __global__ void merge_alpha_tree_col(RGBPixel* image, int* parent, double
 
                     if (levels[p1] > levels[p2])
                     {
-                        if (n != p2)
+                        // FIXME Dirty trick
+                        if (!pre_check_cycle(parent, levels, p2, n))
                             parent[n] = p2;
 
                         int tmp = p1;
                         p1 = p2;
                         p2 = tmp;
                     }
+
+                    //                    printf("p1: %d, p2: %d\n", p1, p2);
+                    //                    printf("n: %d\n", n);
                 }
             }
         }
 
+        //        printf("sync\n");
         __syncthreads();
     }
+
+    // TODO Merge alpha trees between all blocks
 }

@@ -81,7 +81,7 @@ void save_alpha_tree_dot(const std::string& filename, const int* parent, const d
     file << "}" << std::endl;
 }
 
-void alpha_tree_gpu(const std::shared_ptr<utils::RGBImage>&)
+void alpha_tree_gpu(const std::shared_ptr<utils::RGBImage>& image)
 {
     // // Image loading
 
@@ -172,39 +172,64 @@ void alpha_tree_gpu(const std::shared_ptr<utils::RGBImage>&)
     //    cudaFree(m_labels);
     //    cudaFree(m_residual_list);
 
-    RGBPixel image[24] = {
-        {100, 100, 100},
-        {100, 100, 150},
-        {100, 100, 200},
-        {100, 200, 200},
+    //    RGBPixel image[48] = {
+    //        {100, 100, 100},
+    //        {20, 45, 79},
+    //        {100, 100, 150},
+    //        {100, 100, 150},
+    //        {100, 100, 100},
+    //        {20, 45, 79},
+    //        {100, 100, 150},
+    //        {100, 100, 150},
+    //
+    //        {20, 45, 79},
+    //        {100, 100, 100},
+    //        {100, 100, 100},
+    //        {20, 45, 79},
+    //        {20, 45, 79},
+    //        {100, 100, 100},
+    //        {100, 100, 100},
+    //        {20, 45, 79},
+    //
+    //        {100, 100, 150},
+    //        {100, 100, 150},
+    //        {20, 45, 79},
+    //        {100, 100, 100},
+    //        {100, 100, 150},
+    //        {100, 100, 150},
+    //        {20, 45, 79},
+    //        {100, 100, 100},
+    //
+    //        {100, 100, 100},
+    //        {20, 45, 79},
+    //        {100, 100, 150},
+    //        {100, 100, 150},
+    //        {100, 100, 100},
+    //        {20, 45, 79},
+    //        {100, 100, 150},
+    //        {100, 100, 150},
+    //
+    //        {20, 45, 79},
+    //        {100, 100, 100},
+    //        {100, 100, 100},
+    //        {20, 45, 79},
+    //        {20, 45, 79},
+    //        {100, 100, 100},
+    //        {100, 100, 100},
+    //        {20, 45, 79},
+    //
+    //        {100, 100, 150},
+    //        {100, 100, 150},
+    //        {20, 45, 79},
+    //        {100, 100, 100},
+    //        {100, 100, 150},
+    //        {100, 100, 150},
+    //        {20, 45, 79},
+    //        {100, 100, 100},
+    //    };
 
-        {100, 100, 100},
-        {100, 100, 150},
-        {100, 100, 200},
-        {100, 200, 200},
-
-        {100, 100, 100},
-        {250, 100, 150},
-        {250, 100, 200},
-        {100, 200, 200},
-
-        {100, 100, 100},
-        {250, 100, 150},
-        {250, 100, 200},
-        {100, 200, 200},
-
-        {100, 100, 100},
-        {100, 100, 150},
-        {100, 100, 200},
-        {100, 200, 200},
-
-        {100, 100, 100},
-        {100, 100, 150},
-        {100, 100, 200},
-        {100, 200, 200},
-    };
-    int height = 6;
-    int width = 4;
+    int height = image->height;
+    int width = image->width;
 
     int new_height = (height + 2 * BlockHeight * (int)std::ceil((float)height / BlockHeight));
 
@@ -212,13 +237,7 @@ void alpha_tree_gpu(const std::shared_ptr<utils::RGBImage>&)
 
     cudaError_t rc = cudaSuccess;
 
-    RGBPixel* m_image;
-    rc = cudaMallocManaged(&m_image, sizeof(image));
-    if (rc)
-        abortError("Fail M_IMAGE allocation");
-    rc = cudaMemcpy(m_image, image, sizeof(image), cudaMemcpyHostToDevice);
-    if (rc)
-        abortError("Fail M_IMAGE memcpy");
+    RGBPixel* m_image = image->pixels;
 
     int* m_parent;
     rc = cudaMallocManaged(&m_parent, nb_nodes * sizeof(int));
@@ -249,32 +268,29 @@ void alpha_tree_gpu(const std::shared_ptr<utils::RGBImage>&)
     dimBlock = dim3(BlockHeight, 1);
     dimGrid = dim3(w, h);
 
-    std::cout << std::endl
-              << "Build an alpha tree per column:" << std::endl;
+    //    std::cout << std::endl
+    //              << "Build an alpha tree per column:" << std::endl;
 
     build_alpha_tree_col<BlockHeight><<<dimGrid, dimBlock>>>(m_image, m_parent, m_levels, height, width);
-
     cudaDeviceSynchronize();
 
-    for (int i = 0; i < nb_nodes; ++i)
-        std::cout << "Node: " << i << ", Parent: " << m_parent[i] << ", Level: " << m_levels[i] << std::endl;
+    //    for (int i = 0; i < nb_nodes; ++i)
+    //        std::cout << "Node: " << i << ", Parent: " << m_parent[i] << ", Level: " << m_levels[i] << std::endl;
+    //
+    //    save_alpha_tree_dot("before_merge.dot", m_parent, m_levels, nb_nodes);
+    //
+    //    std::cout << std::endl
+    //              << "Merge alpha tree per column:" << std::endl;
 
-    save_alpha_tree_dot("before_merge.dot", m_parent, m_levels, nb_nodes);
-
-    std::cout << std::endl
-              << "Merge alpha tree per column:" << std::endl;
-
-    // FIXME Modify block and grid dim according to the reduce
     merge_alpha_tree_col<BlockHeight><<<dimGrid, dimBlock>>>(m_image, m_parent, m_levels, height, width);
-
     cudaDeviceSynchronize();
 
-    for (int i = 0; i < nb_nodes; ++i)
-        std::cout << "Node: " << i << ", Parent: " << m_parent[i] << ", Level: " << m_levels[i] << std::endl;
+    //    for (int i = 0; i < nb_nodes; ++i)
+    //        std::cout << "Node: " << i << ", Parent: " << m_parent[i] << ", Level: " << m_levels[i] << std::endl;
 
-    save_alpha_tree_dot("after_merge.dot", m_parent, m_levels, nb_nodes);
+    //    save_alpha_tree_dot("after_merge.dot", m_parent, m_levels, nb_nodes);
 
-    cudaFree(m_image);
+    //    cudaFree(m_image);
     cudaFree(m_parent);
     cudaFree(m_levels);
 }
