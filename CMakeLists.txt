@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.19)
-project(gpu_alpha_tree CXX CUDA)
+project(gpu_alpha_tree CUDA CXX)
 
 # Set compile flags and sources paths
 set(SRC
