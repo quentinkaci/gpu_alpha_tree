@@ -133,8 +133,6 @@ inline __device__ void canonize_tree(int* parent, const double* levels, int leav
 
 inline __device__ bool pre_check_cycle(const int* parent, const double* levels, int p, int q)
 {
-    // FIXME Refactor this function
-
     if (parent[p] == q)
         return true;
 
@@ -152,28 +150,24 @@ inline __device__ bool pre_check_cycle(const int* parent, const double* levels, 
     return p == q;
 }
 
-
 template <int BlockHeight>
-inline __device__ void merge_left_right(RGBPixel* image, int* parent, double* levels, int height, int width, int x, int y, int left_offset, int right_offset, int parent_offset)
+inline __device__ void merge_left_right(RGBPixel* image, int* parent, double* levels, int height, int width, int x, int y, int left_offset, int parent_offset)
 {
     int nb_pix_col = min(height - y, BlockHeight);
 
     // Merge with column on the right
     int rl = find(parent, left_offset);
-    int rr = find(parent, right_offset);
+    int rr = find(parent, left_offset + BlockHeight);
 
     // Merge root node
     merge(parent, levels, rl, rr);
-
-    //            if (stride == 4)
-    //                nb_pix_col = 1;
 
     // Iterate on border edges
     for (int i = 0; i < nb_pix_col; ++i)
     {
         // Merge with column on the right
         int p = i + left_offset;
-        int q = i + right_offset;
+        int q = i + left_offset + BlockHeight;
         double dist = l2_dist(image[x + (y + i) * width], image[(x + 1) + (y + i) * width]);
 
         int c1 = find_intersection(parent, levels, p, dist);
@@ -194,16 +188,10 @@ inline __device__ void merge_left_right(RGBPixel* image, int* parent, double* le
             p2 = tmp;
         }
 
-        //                printf("p: %d, q: %d, w: %f\n", p, q, dist);
-        //                printf("c1: %d, c2: %d\n", c1, c2);
-        //                printf("p1: %d, p2: %d\n", p1, p2);
-        //                printf("n: %d\n", n);
-
         merge(parent, levels, n, p1);
 
         while (p1 != p2)
         {
-            // FIXME Dirty trick
             if (levels[p1] == levels[p2] && !pre_check_cycle(parent, levels, p1, p2))
             {
                 int p1_ = parent[p1];
@@ -217,7 +205,6 @@ inline __device__ void merge_left_right(RGBPixel* image, int* parent, double* le
 
             if (levels[p1] > levels[p2])
             {
-                // FIXME Dirty trick
                 if (!pre_check_cycle(parent, levels, p2, n))
                     parent[n] = p2;
 
@@ -225,29 +212,24 @@ inline __device__ void merge_left_right(RGBPixel* image, int* parent, double* le
                 p1 = p2;
                 p2 = tmp;
             }
-
-            //                    printf("p1: %d, p2: %d\n", p1, p2);
-            //                    printf("n: %d\n", n);
         }
     }
 }
 
 template <int BlockHeight>
-inline __global__ void merge_alpha_tree_col(RGBPixel* image, int* parent, double* levels, int height, int width)
+inline __global__ void merge_alpha_tree_cols(RGBPixel* image, int* parent, double* levels, int height, int width, volatile bool* block_mask)
 {
     int x = blockDim.x * blockIdx.x + threadIdx.x;
     int y = BlockHeight * blockIdx.y;
 
     int nb_pix_col = min(height - y, BlockHeight);
 
-    for (int stride = 1; stride <= blockDim.x; stride *= 2)
-    {
-        if (threadIdx.x % (2 * stride) == 0 && (x + stride) < ((blockIdx.x + 1) * blockDim.x) && y < height)
-        {
-            //            if (stride == 8)
-            //                return;
-            //            printf("x: %d, y: %d\n", x, y);
+    // Merge in blocks
 
+    for (int stride = 1; (threadIdx.x + stride) < blockDim.x; stride *= 2)
+    {
+        if (threadIdx.x % (2 * stride) == 0 && y < height)
+        {
             int leaf_offset = BlockHeight * (stride - 1);
             if ((blockIdx.y + 1) * BlockHeight >= height) // Last line
                 leaf_offset += BlockHeight * width * blockIdx.y + nb_pix_col * x;
@@ -255,33 +237,61 @@ inline __global__ void merge_alpha_tree_col(RGBPixel* image, int* parent, double
                 leaf_offset += BlockHeight * (x + blockIdx.y * width);
             int parent_offset = width * height + 2 * BlockHeight * ((x + (stride - 1)) + blockIdx.y * width);
 
-            //            printf("leaf offset: %d\n", leaf_offset);
-            //            printf("parent offset: %d\n", parent_offset);
-
-            merge_left_right<BlockHeight>(image, parent, levels, height, width, x, y, leaf_offset, leaf_offset + BlockHeight, parent_offset);
+            merge_left_right<BlockHeight>(image, parent, levels, height, width, x, y, leaf_offset, parent_offset);
         }
 
-        //        printf("sync\n");
         __syncthreads();
     }
 
-    if (x == 0)
-    {
-        for (int stride = 0; stride < width;)
-        {
-            stride += blockDim.x;
+    // Merge between blocks
 
-            if (stride >= width)
-            {
-                stride = width;
-            }
-
-            int leaf_offset = BlockHeight * stride + BlockHeight * width * blockIdx.y;
-            int parent_offset = width * height + 2 * BlockHeight * (stride + blockIdx.y * width);
-
-            merge_left_right<BlockHeight>(image, parent, levels, height, width, x, y, leaf_offset, leaf_offset + BlockHeight, parent_offset);
-        }
-    }
-
-    __syncthreads();
+    //    if (threadIdx.x == 0)
+    //    {
+    //        for (int stride = 1; blockIdx.x + stride < gridDim.x; stride *= 2)
+    //        {
+    //            // Reset all values on the same line
+    //
+    //            block_mask[blockIdx.x + gridDim.x * blockIdx.y] = false;
+    //
+    //            bool line_has_finished = false;
+    //            while (!line_has_finished)
+    //            {
+    //                line_has_finished = true;
+    //                for (int i = 0; i < gridDim.x && line_has_finished; ++i)
+    //                {
+    //                    if (i + stride < gridDim.x)
+    //                        line_has_finished &= !block_mask[i + gridDim.x * blockIdx.y];
+    //                }
+    //            }
+    //
+    //            if (blockIdx.x % (2 * stride) == 0 && y < height)
+    //            {
+    //                int column_stride = blockDim.x * stride;
+    //
+    //                int leaf_offset = BlockHeight * (column_stride - 1);
+    //                if ((blockIdx.y + 1) * BlockHeight >= height) // Last line
+    //                    leaf_offset += BlockHeight * width * blockIdx.y + nb_pix_col * x;
+    //                else
+    //                    leaf_offset += BlockHeight * (x + blockIdx.y * width);
+    //                int parent_offset = width * height + 2 * BlockHeight * ((x + (column_stride - 1)) + blockIdx.y * width);
+    //
+    //                merge_left_right<BlockHeight>(image, parent, levels, height, width, x, y, leaf_offset, parent_offset);
+    //            }
+    //
+    //            // Current block has finished
+    //            block_mask[blockIdx.x + gridDim.x * blockIdx.y] = true;
+    //
+    //            // Waiting for all blocks in the same line
+    //            line_has_finished = false;
+    //            while (!line_has_finished)
+    //            {
+    //                line_has_finished = true;
+    //                for (int i = 0; i < gridDim.x && line_has_finished; ++i)
+    //                {
+    //                    if (i + stride < gridDim.x)
+    //                        line_has_finished &= block_mask[i + gridDim.x * blockIdx.y];
+    //                }
+    //            }
+    //        }
+    //    }
 }

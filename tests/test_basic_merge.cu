@@ -30,7 +30,7 @@ void assert_alpha_tree_eq(RGBPixel* image, int height, int width, const int* exp
     int* m_parent;
     rc = cudaMallocManaged(&m_parent, nb_nodes * sizeof(int));
     if (rc)
-        abortError("Fail M_IMAGE allocation");
+        abortError("Fail M_PARENT allocation");
 
     double* m_levels;
     rc = cudaMallocManaged(&m_levels, nb_nodes * sizeof(double));
@@ -55,10 +55,15 @@ void assert_alpha_tree_eq(RGBPixel* image, int height, int width, const int* exp
     dimBlock = dim3(BlockHeight, 1);
     dimGrid = dim3(w, h);
 
+    bool* m_block_mask;
+    rc = cudaMallocManaged(&m_block_mask, dimGrid.x * dimGrid.y * sizeof(bool));
+    if (rc)
+        abortError("Fail M_BLOCK_MASK allocation");
+
     build_alpha_tree_col<BlockHeight><<<dimGrid, dimBlock>>>(m_image, m_parent, m_levels, height, width);
     cudaDeviceSynchronize();
 
-    merge_alpha_tree_col<BlockHeight><<<mergeDimGrid, mergeDimBlock>>>(m_image, m_parent, m_levels, height, width);
+    merge_alpha_tree_cols<BlockHeight><<<mergeDimGrid, mergeDimBlock>>>(m_image, m_parent, m_levels, height, width, m_block_mask);
     cudaDeviceSynchronize();
 
     for (int i = 0; i < nb_nodes; ++i)

@@ -61,6 +61,8 @@ set_target_properties(gpu_alpha_tree PROPERTIES CUDA_SEPARABLE_COMPILATION ON)
 target_link_libraries(gpu_alpha_tree PUBLIC Thrust::Thrust ${PNG_LIBRARY} spdlog::spdlog)
 target_include_directories(gpu_alpha_tree PUBLIC src/)
 
+set_property(TARGET gpu_alpha_tree PROPERTY CUDA_ARCHITECTURES 61)
+
 # Create target `main`
 add_executable(main src/main.cc)
 target_link_libraries(main PRIVATE gpu_alpha_tree CLI11::CLI11)

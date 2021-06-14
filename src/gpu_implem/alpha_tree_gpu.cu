@@ -268,6 +268,11 @@ void alpha_tree_gpu(const std::shared_ptr<utils::RGBImage>& image)
     dimBlock = dim3(BlockHeight, 1);
     dimGrid = dim3(w, h);
 
+    bool* m_block_mask;
+    rc = cudaMallocManaged(&m_block_mask, dimGrid.x * dimGrid.y * sizeof(bool));
+    if (rc)
+        abortError("Fail M_BLOCK_MASK allocation");
+
     //    std::cout << std::endl
     //              << "Build an alpha tree per column:" << std::endl;
 
@@ -282,7 +287,7 @@ void alpha_tree_gpu(const std::shared_ptr<utils::RGBImage>& image)
     //    std::cout << std::endl
     //              << "Merge alpha tree per column:" << std::endl;
 
-    merge_alpha_tree_col<BlockHeight><<<dimGrid, dimBlock>>>(m_image, m_parent, m_levels, height, width);
+    merge_alpha_tree_cols<BlockHeight><<<dimGrid, dimBlock>>>(m_image, m_parent, m_levels, height, width, m_block_mask);
     cudaDeviceSynchronize();
 
     //    for (int i = 0; i < nb_nodes; ++i)
