@@ -12,7 +12,6 @@
 
 using namespace utils;
 
-constexpr int connectivity = 4;
 constexpr int BlockHeight = 6;
 
 void dfs_dot(std::ofstream& out, const std::vector<std::vector<int>>& children, const double* levels, int node)
