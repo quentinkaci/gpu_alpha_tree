@@ -7,13 +7,14 @@ namespace utils
     RGBImage::RGBImage(uint height, uint width)
         : height(height), width(width)
     {
-        if (cudaMallocManaged(&pixels, height * width * sizeof(RGBPixel)))
-            abortError("Fail PIXELS allocation");
+        cudaMallocManaged(&pixels, height * width * sizeof(RGBPixel));
+        checkCudaError();
     }
 
     RGBImage::~RGBImage()
     {
         cudaFree(pixels);
+        checkCudaError();
     }
 
     std::shared_ptr<RGBImage> RGBImage::load(const std::string& filename)

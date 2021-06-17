@@ -17,28 +17,21 @@ void assert_alpha_tree_eq(RGBPixel* image, int height, int width, const int* exp
 
     int nb_nodes = width * new_height;
 
-    cudaError_t rc = cudaSuccess;
-
     RGBPixel* m_image;
-    rc = cudaMallocManaged(&m_image, height * width * sizeof(RGBPixel));
-    if (rc)
-        abortError("Fail M_IMAGE allocation");
-    rc = cudaMemcpy(m_image, image, height * width * sizeof(RGBPixel), cudaMemcpyHostToDevice);
-    if (rc)
-        abortError("Fail M_IMAGE memcpy");
+    cudaMallocManaged(&m_image, height * width * sizeof(RGBPixel));
+    checkCudaError();
+    cudaMemcpy(m_image, image, height * width * sizeof(RGBPixel), cudaMemcpyHostToDevice);
+    checkCudaError();
 
     int* m_parent;
-    rc = cudaMallocManaged(&m_parent, nb_nodes * sizeof(int));
-    if (rc)
-        abortError("Fail M_PARENT allocation");
+    cudaMallocManaged(&m_parent, nb_nodes * sizeof(int));
+    checkCudaError();
 
     double* m_levels;
-    rc = cudaMallocManaged(&m_levels, nb_nodes * sizeof(double));
-    if (rc)
-        abortError("Fail M_LEVELS allocation");
-    rc = cudaMemset(m_levels, 0, nb_nodes * sizeof(double));
-    if (rc)
-        abortError("Fail M_LEVELS memset");
+    cudaMallocManaged(&m_levels, nb_nodes * sizeof(double));
+    checkCudaError();
+    cudaMemset(m_levels, 0, nb_nodes * sizeof(double));
+    checkCudaError();
 
     int w = std::ceil((float)width / BlockHeight);
     int h = std::ceil((float)new_height / BlockHeight);
@@ -47,7 +40,9 @@ void assert_alpha_tree_eq(RGBPixel* image, int height, int width, const int* exp
     dim3 dimGrid(w, h);
 
     init_parent<<<dimGrid, dimBlock>>>(m_parent, new_height, width);
+    checkCudaError();
     cudaDeviceSynchronize();
+    checkCudaError();
 
     w = std::ceil((float)width / BlockHeight);
     h = std::ceil((float)height / BlockHeight);
@@ -55,16 +50,15 @@ void assert_alpha_tree_eq(RGBPixel* image, int height, int width, const int* exp
     dimBlock = dim3(BlockHeight, 1);
     dimGrid = dim3(w, h);
 
-    bool* m_block_mask;
-    rc = cudaMallocManaged(&m_block_mask, dimGrid.x * dimGrid.y * sizeof(bool));
-    if (rc)
-        abortError("Fail M_BLOCK_MASK allocation");
-
     build_alpha_tree_col<BlockHeight><<<dimGrid, dimBlock>>>(m_image, m_parent, m_levels, height, width);
+    checkCudaError();
     cudaDeviceSynchronize();
+    checkCudaError();
 
-    merge_alpha_tree_cols<BlockHeight><<<mergeDimGrid, mergeDimBlock>>>(m_image, m_parent, m_levels, height, width, m_block_mask);
+    merge_alpha_tree_cols<BlockHeight><<<mergeDimGrid, mergeDimBlock>>>(m_image, m_parent, m_levels, height, width);
+    checkCudaError();
     cudaDeviceSynchronize();
+    checkCudaError();
 
     for (int i = 0; i < nb_nodes; ++i)
     {

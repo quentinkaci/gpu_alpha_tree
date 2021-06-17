@@ -2,13 +2,13 @@
 
 #include <cuda_runtime.h>
 #include <iostream>
+#include <spdlog/spdlog.h>
 
-inline void _abortError(const char* msg, const char* fname)
-{
-    cudaError_t err = cudaGetLastError();
-    std::cerr << "Error: " << cudaGetErrorName(err) << std::endl;
-    std::cerr << msg << std::endl;
-    std::exit(1);
-}
-
-#define abortError(msg) _abortError(msg, __FUNCTION__)
+#define checkCudaError()                                                               \
+    if (cudaGetLastError() != cudaSuccess)                                             \
+    {                                                                                  \
+        cudaError_t err = cudaGetLastError();                                          \
+        spdlog::error("({}, line: {})", __FUNCTION__, __LINE__);                       \
+        spdlog::error("Error {}: {}", cudaGetErrorName(err), cudaGetErrorString(err)); \
+        std::exit(1);                                                                  \
+    }
