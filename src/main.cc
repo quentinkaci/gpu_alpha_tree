@@ -7,7 +7,7 @@
 
 int main(int argc, char** argv)
 {
-    std::string path = "../resources/batiment.png";
+    std::string path = "../resources/hong_kong.png";
     std::string mode = "GPU";
 
     CLI::App app("gpu_alpha_tree");
