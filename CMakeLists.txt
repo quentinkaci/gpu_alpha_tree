@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.19)
-project(gpu_alpha_tree CXX CUDA)
+project(gpu_alpha_tree CUDA CXX)
 
 # Set compile flags and sources paths
 set(SRC
@@ -57,7 +57,7 @@ FetchContent_MakeAvailable(spdlog)
 # Create target containing all source files
 add_library(gpu_alpha_tree)
 target_sources(gpu_alpha_tree PRIVATE ${SRC})
-set_target_properties(gpu_alpha_tree PROPERTIES CUDA_SEPARABLE_COMPILATION ON)
+set_target_properties(gpu_alpha_tree PROPERTIES CUDA_SEPARABLE_COMPILATION ON CUDA_ARCHITECTURES 61)
 target_link_libraries(gpu_alpha_tree PUBLIC Thrust::Thrust ${PNG_LIBRARY} spdlog::spdlog)
 target_include_directories(gpu_alpha_tree PUBLIC src/)
 

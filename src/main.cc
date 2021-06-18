@@ -1,9 +1,9 @@
 #include <CLI/CLI.hpp>
 #include <spdlog/spdlog.h>
 
-#include "utils/image.cuh"
 #include "cpu_implem/alpha_tree_cpu.hh"
 #include "gpu_implem/alpha_tree_gpu.cuh"
+#include "utils/image.cuh"
 
 int main(int argc, char** argv)
 {
@@ -23,6 +23,6 @@ int main(int argc, char** argv)
     else if (mode == "CPU")
         alpha_tree_cpu(image);
     image->save("output.png");
-    
+
     return 0;
 }
