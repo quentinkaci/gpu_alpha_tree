@@ -118,10 +118,10 @@ void alpha_tree_gpu(const std::shared_ptr<utils::RGBImage>& image)
     cudaDeviceSynchronize();
     checkCudaError();
 
-    //    merge_alpha_tree_blocks_v<BlockHeight><<<1, 1>>>(m_image, m_parent, m_levels, height, width);
-    //    checkCudaError();
-    //    cudaDeviceSynchronize();
-    //    checkCudaError();
+    merge_alpha_tree_blocks_v<BlockHeight><<<dimGrid, dimBlock>>>(m_image, m_parent, m_levels, height, width);
+    checkCudaError();
+    cudaDeviceSynchronize();
+    checkCudaError();
 
     //    for (int i = 0; i < nb_nodes; ++i)
     //        std::cout << "Node: " << i << ", Parent: " << m_parent[i] << ", Level: " << m_levels[i] << std::endl;

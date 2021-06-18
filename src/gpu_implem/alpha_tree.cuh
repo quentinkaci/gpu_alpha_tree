@@ -184,7 +184,7 @@ merge_alpha_tree(RGBPixel* image, int* parent, double* levels, int height, int w
             p = BlockHeight * i + first_node;
             q = BlockHeight * i + first_node + offset;
             dist = l2_dist(image[(x + i) + y * width], image[(x + i) + (y + 1) * width]);
-            n = parent_offset + BlockHeight - 1;
+            n = 2 * BlockHeight * i + parent_offset + BlockHeight - 1;
         }
 
         int c1 = find_intersection(parent, levels, p, dist);
@@ -246,12 +246,7 @@ inline __global__ void merge_alpha_tree_cols(RGBPixel* image, int* parent, doubl
     {
         if (threadIdx.x % (2 * stride) == 0 && y < height)
         {
-            // FIXME Check x and y
-            int leaf_offset = BlockHeight * (stride - 1);
-            if ((blockIdx.y + 1) * BlockHeight >= height) // Last line
-                leaf_offset += BlockHeight * width * blockIdx.y + nb_pix_col * x;
-            else
-                leaf_offset += BlockHeight * (x + blockIdx.y * width);
+            int leaf_offset = nb_pix_col * (stride - 1) + BlockHeight * width * blockIdx.y + nb_pix_col * x;
             int parent_offset = width * height + 2 * BlockHeight * ((x + (stride - 1)) + blockIdx.y * width);
 
             merge_alpha_tree<BlockHeight>(image, parent, levels, height, width, leaf_offset, parent_offset, MergeDirection::RIGHT);
@@ -264,7 +259,6 @@ inline __global__ void merge_alpha_tree_cols(RGBPixel* image, int* parent, doubl
 template <int BlockHeight>
 inline __global__ void merge_alpha_tree_blocks_h(RGBPixel* image, int* parent, double* levels, int height, int width)
 {
-    int x = blockDim.x * blockIdx.x + threadIdx.x;
     int y = BlockHeight * blockIdx.y;
 
     int nb_pix_col = min(height - y, BlockHeight);
@@ -276,15 +270,10 @@ inline __global__ void merge_alpha_tree_blocks_h(RGBPixel* image, int* parent, d
     {
         for (int stride = 1; stride < gridDim.x; stride += 1)
         {
-            // FIXME Check x and y
             int column_stride = blockDim.x * stride;
 
-            int leaf_offset = BlockHeight * (column_stride - 1);
-            if ((blockIdx.y + 1) * BlockHeight >= height) // Last line
-                leaf_offset += BlockHeight * width * blockIdx.y + nb_pix_col * x;
-            else
-                leaf_offset += BlockHeight * (x + blockIdx.y * width);
-            int parent_offset = width * height + 2 * BlockHeight * ((x + (column_stride - 1)) + blockIdx.y * width);
+            int leaf_offset = nb_pix_col * (column_stride - 1) + BlockHeight * width * blockIdx.y;
+            int parent_offset = width * height + 2 * BlockHeight * ((column_stride - 1) + blockIdx.y * width);
 
             merge_alpha_tree<BlockHeight>(image, parent, levels, height, width, leaf_offset, parent_offset, MergeDirection::RIGHT);
         }
@@ -294,26 +283,17 @@ inline __global__ void merge_alpha_tree_blocks_h(RGBPixel* image, int* parent, d
 template <int BlockHeight>
 inline __global__ void merge_alpha_tree_blocks_v(RGBPixel* image, int* parent, double* levels, int height, int width)
 {
-    int x = blockDim.x * blockIdx.x + threadIdx.x;
-    int y = BlockHeight * blockIdx.y;
-
-    int nb_pix_col = min(height - y, BlockHeight);
-
     // Merge between blocks vertically
     // The first thread make the merge of all lines
 
-    // FIXME Change indexes
-    for (int stride = 1; stride < gridDim.x; stride += 1)
+    if (threadIdx.x == 0 && blockIdx.x == 0 && blockIdx.y == 0)
     {
-        int column_stride = blockDim.x * stride;
+        for (int stride = 1; stride < gridDim.y; stride += 1)
+        {
+            int leaf_offset = (stride - 1) * BlockHeight * width + (BlockHeight - 1);
+            int parent_offset = width * height + (stride - 1) * 2 * BlockHeight * width;
 
-        int leaf_offset = BlockHeight * (column_stride - 1);
-        if ((blockIdx.y + 1) * BlockHeight >= height) // Last line
-            leaf_offset += BlockHeight * width * blockIdx.y + nb_pix_col * x;
-        else
-            leaf_offset += BlockHeight * (x + blockIdx.y * width);
-        int parent_offset = width * height + 2 * BlockHeight * ((x + (column_stride - 1)) + blockIdx.y * width);
-
-        merge_alpha_tree<BlockHeight>(image, parent, levels, height, width, leaf_offset, parent_offset, MergeDirection::DOWN);
+            merge_alpha_tree<BlockHeight>(image, parent, levels, height, width, leaf_offset, parent_offset, MergeDirection::DOWN);
+        }
     }
 }
