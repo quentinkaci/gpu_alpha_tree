@@ -58,10 +58,6 @@ void save_alpha_tree_dot(const std::string& filename, const int* parent, const d
 
 void alpha_tree_gpu(const std::shared_ptr<utils::RGBImage>& image)
 {
-    // FIXME Adapt according to the image
-    cudaDeviceSetLimit(cudaLimitMallocHeapSize, 1048576ULL * 1024);
-    checkCudaError();
-
     int height = image->height;
     int width = image->width;
 

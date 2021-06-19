@@ -1,13 +1,17 @@
 #include <CLI/CLI.hpp>
 #include <spdlog/spdlog.h>
 
+#include <benchmark/benchmark.h>
+#include <cuda_runtime.h>
+
 #include "cpu_implem/alpha_tree_cpu.hh"
 #include "gpu_implem/alpha_tree_gpu.cuh"
+#include "utils/cuda_error.cuh"
 #include "utils/image.cuh"
 
 int main(int argc, char** argv)
 {
-    std::string path = "../resources/hong_kong.png";
+    std::string path = "../resources/batiment.png";
     std::string mode = "GPU";
 
     CLI::App app("gpu_alpha_tree");
@@ -19,7 +23,12 @@ int main(int argc, char** argv)
 
     auto image = utils::RGBImage::load(path);
     if (mode == "GPU")
+    {
+        cudaDeviceSetLimit(cudaLimitMallocHeapSize, 1048576ULL * 1024);
+        checkCudaError();
+
         alpha_tree_gpu(image);
+    }
     else if (mode == "CPU")
         alpha_tree_cpu(image);
     image->save("output.png");

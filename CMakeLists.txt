@@ -58,16 +58,16 @@ FetchContent_MakeAvailable(spdlog)
 # Create target containing all source files
 add_library(gpu_alpha_tree)
 target_sources(gpu_alpha_tree PRIVATE ${SRC})
-set_target_properties(gpu_alpha_tree PROPERTIES CUDA_SEPARABLE_COMPILATION ON CUDA_ARCHITECTURES 61)
+set_target_properties(gpu_alpha_tree PROPERTIES CUDA_SEPARABLE_COMPILATION ON)
 target_link_libraries(gpu_alpha_tree PUBLIC Thrust::Thrust ${PNG_LIBRARY} spdlog::spdlog)
 target_include_directories(gpu_alpha_tree PUBLIC src/)
 
 # Create target `main`
-add_executable(main src/main.cc)
+add_executable(main src/main.cu)
 target_link_libraries(main PRIVATE gpu_alpha_tree CLI11::CLI11)
 
 # Create target `bench`
-add_executable(bench src/bench.cc)
+add_executable(bench src/bench.cu)
 target_link_libraries(bench PRIVATE gpu_alpha_tree benchmark)
 
 # Create target `tests`
