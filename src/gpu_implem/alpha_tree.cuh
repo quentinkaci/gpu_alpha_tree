@@ -190,7 +190,7 @@ merge_alpha_tree(RGBPixel* image, int* parent, double* levels, int height, int w
         else // DOWN Merge
         {
             p = BlockHeight * i + first_node;
-            q = BlockHeight * i + first_node + offset;
+            q = BlockHeight * i + first_node + BlockHeight * (width - i) + min(height - (y + 1), BlockHeight) * i;
             dist = l2_dist(image[(x + i) + y * width], image[(x + i) + (y + 1) * width]);
             n = 2 * BlockHeight * i + parent_offset + BlockHeight - 1;
         }

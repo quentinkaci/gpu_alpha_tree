@@ -12,7 +12,7 @@
 
 using namespace utils;
 
-constexpr int BlockHeight = 32;
+constexpr int BlockHeight = 60;
 
 void dfs_dot(std::ofstream& out, const std::vector<std::vector<int>>& children, const double* levels, int node)
 {
@@ -76,10 +76,10 @@ void alpha_tree_gpu(const std::shared_ptr<utils::RGBImage>& image)
     cudaMemset(m_levels, 0, nb_nodes * sizeof(double));
     checkCudaError();
 
-    int w = std::ceil((float)width / BlockHeight);
-    int h = std::ceil((float)new_height / BlockHeight);
+    int w = std::ceil((float)width / 32);
+    int h = std::ceil((float)new_height / 32);
 
-    dim3 dimBlock(BlockHeight, BlockHeight);
+    dim3 dimBlock(32, 32);
     dim3 dimGrid(w, h);
 
     init_parent<<<dimGrid, dimBlock>>>(m_parent, new_height, width);
