@@ -6,7 +6,7 @@
 #include <benchmark/benchmark.h>
 #include <cuda_runtime.h>
 
-static std::vector<std::string> bench_images = {"../resources/batiment.png", "../resources/mountains.png", "../resources/hong_kong.png"};
+static std::vector<std::string> bench_images = {"../resources/plane.png", "../resources/nature.png", "../resources/mountains.png", "../resources/hong_kong.png"};
 
 void bench_gpu(benchmark::State& st)
 {
@@ -34,8 +34,8 @@ void bench_cpu(benchmark::State& st)
     }
 }
 
-BENCHMARK(bench_cpu)->Arg(0)->Arg(1)->Arg(2)->Unit(benchmark::kMillisecond)->UseRealTime();
-BENCHMARK(bench_gpu)->Arg(0)->Arg(1)->Arg(2)->Unit(benchmark::kMillisecond)->UseRealTime();
+BENCHMARK(bench_cpu)->Arg(0)->Arg(1)->Arg(2)->Arg(3)->Unit(benchmark::kMillisecond)->UseRealTime();
+BENCHMARK(bench_gpu)->Arg(0)->Arg(1)->Arg(2)->Arg(3)->Unit(benchmark::kMillisecond)->UseRealTime();
 
 int main(int argc, char** argv)
 {
