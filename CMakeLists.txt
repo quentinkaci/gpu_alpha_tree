@@ -6,6 +6,7 @@ set(SRC
         src/cpu_implem/alpha_tree_cpu.cc
         src/gpu_implem/alpha_tree_gpu.cu
         src/gpu_implem/cc_labelling.cu
+        src/gpu_implem/cc_labelling_gpu.cu
         src/gpu_implem/graph_creation.cu
         src/utils/image.cu)
 

@@ -93,21 +93,12 @@ void alpha_tree_gpu(const std::shared_ptr<utils::RGBImage>& image)
     dimBlock = dim3(BlockHeight, 1);
     dimGrid = dim3(w, h);
 
-    //    std::cout << std::endl
-    //              << "Build an alpha tree per column:" << std::endl;
-
     build_alpha_tree_col<BlockHeight><<<dimGrid, dimBlock>>>(m_image, m_parent, m_levels, height, width);
     checkCudaError();
     cudaDeviceSynchronize();
     checkCudaError();
 
-    //    for (int i = 0; i < nb_nodes; ++i)
-    //        std::cout << "Node: " << i << ", Parent: " << m_parent[i] << ", Level: " << m_levels[i] << std::endl;
-    //
     //    save_alpha_tree_dot("before_merge.dot", m_parent, m_levels, nb_nodes);
-    //
-    //    std::cout << std::endl
-    //              << "Merge alpha tree per column:" << std::endl;
 
     merge_alpha_tree_cols<BlockHeight><<<dimGrid, dimBlock>>>(m_image, m_parent, m_levels, height, width);
     checkCudaError();
@@ -123,9 +114,6 @@ void alpha_tree_gpu(const std::shared_ptr<utils::RGBImage>& image)
     checkCudaError();
     cudaDeviceSynchronize();
     checkCudaError();
-
-    //    for (int i = 0; i < nb_nodes; ++i)
-    //        std::cout << "Node: " << i << ", Parent: " << m_parent[i] << ", Level: " << m_levels[i] << std::endl;
 
     //    save_alpha_tree_dot("after_merge.dot", m_parent, m_levels, nb_nodes);
 

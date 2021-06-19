@@ -1,9 +1,8 @@
 #include "alpha_tree_cpu.hh"
 
-#include <vector>
 #include <cmath>
-#include <algorithm>
 #include <numeric>
+#include <vector>
 
 using namespace utils;
 
@@ -26,14 +25,14 @@ static std::vector<GraphEdge> create_graph(const std::shared_ptr<RGBImage>& imag
             {
                 const RGBPixel dst = image->pixels[x + (y + 1) * image->width];
                 const float w = gradient(src, dst);
-                edges.push_back({ x + y * image->width, x + (y + 1) * image->width, w });
+                edges.push_back({x + y * image->width, x + (y + 1) * image->width, w});
             }
 
             if (x != image->width - 1)
             {
                 const RGBPixel dst = image->pixels[(x + 1) + y * image->width];
                 const float w = gradient(src, dst);
-                edges.push_back({ x + y * image->width, (x + 1) + y * image->width, w });
+                edges.push_back({x + y * image->width, (x + 1) + y * image->width, w});
             }
         }
     }
@@ -61,7 +60,7 @@ static uint find(std::vector<uint>& par, uint val)
         par[val] = r;
         val = q;
     }
-    
+
     return r;
 }
 
@@ -92,7 +91,7 @@ static std::vector<uint> compute_flatzones(const std::shared_ptr<RGBImage>& imag
 static std::vector<int> create_node_map(std::vector<uint>& zpar, uint& flatzones_count)
 {
     flatzones_count = 0;
-    
+
     std::vector<int> node_map(zpar.size(), -1);
 
     for (uint p = 0; p < zpar.size(); p++)
@@ -100,10 +99,7 @@ static std::vector<int> create_node_map(std::vector<uint>& zpar, uint& flatzones
         const uint rp = find(zpar, p);
 
         if (node_map[rp] < 0)
-        {
-            node_map[rp] = flatzones_count;
-            flatzones_count++;
-        }
+            node_map[rp] = flatzones_count++;
 
         node_map[p] = node_map[rp];
     }
@@ -134,8 +130,7 @@ static AlphaTree compute_hierarchy(const std::vector<GraphEdge>& edges,
 
         if (rp != rq)
         {
-            const uint new_root_id = node_count;
-            node_count++;
+            const uint new_root_id = node_count++;
 
             levels[new_root_id] = weight;
             par[rp] = new_root_id;
@@ -152,7 +147,7 @@ void alpha_tree_cpu(const std::shared_ptr<RGBImage>& image)
 {
     // 1. Create 4 connectivity graph
     std::vector<GraphEdge> edges = create_graph(image);
-    
+
     // 2. Sort edges per weight
     std::sort(edges.begin(), edges.end());
 
