@@ -20,4 +20,4 @@ struct AlphaTree
     std::vector<uint> levels;
 };
 
-void alpha_tree_cpu(const std::shared_ptr<utils::RGBImage>& image);
+AlphaTree alpha_tree_cpu(const std::shared_ptr<utils::RGBImage>& image);

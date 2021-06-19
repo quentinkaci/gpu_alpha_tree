@@ -119,8 +119,11 @@ static AlphaTree compute_hierarchy(const std::vector<GraphEdge>& edges,
 
     std::vector<uint> levels(2 * node_count - 1, 0);
 
-    for (uint i = 0; i < edges.size() && edges[i].weight != 0; i++)
+    for (uint i = 0; i < edges.size(); i++)
     {
+        if (edges[i].weight == 0)
+            continue;
+
         const uint p = edges[i].src;
         const uint q = edges[i].dst;
         const float weight = edges[i].weight;
@@ -143,7 +146,7 @@ static AlphaTree compute_hierarchy(const std::vector<GraphEdge>& edges,
     return AlphaTree{par, levels};
 }
 
-void alpha_tree_cpu(const std::shared_ptr<RGBImage>& image)
+AlphaTree alpha_tree_cpu(const std::shared_ptr<RGBImage>& image)
 {
     // 1. Create 4 connectivity graph
     std::vector<GraphEdge> edges = create_graph(image);
@@ -157,5 +160,5 @@ void alpha_tree_cpu(const std::shared_ptr<RGBImage>& image)
     auto node_map = create_node_map(zpar, flatzones_count);
 
     // 4. Create α-tree
-    auto res = compute_hierarchy(edges, node_map, flatzones_count);
+    return compute_hierarchy(edges, node_map, flatzones_count);
 }
