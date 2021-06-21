@@ -1,7 +1,6 @@
 #include <CLI/CLI.hpp>
 #include <spdlog/spdlog.h>
 
-#include <benchmark/benchmark.h>
 #include <cuda_runtime.h>
 
 #include "cpu_implem/alpha_tree_cpu.hh"
@@ -11,7 +10,7 @@
 
 int main(int argc, char** argv)
 {
-    std::string path = "../resources/batiment.png";
+    std::string path = "../resources/hong_kong.png";
     std::string mode = "GPU";
 
     CLI::App app("gpu_alpha_tree");
